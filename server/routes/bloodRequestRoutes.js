@@ -7,8 +7,11 @@ const {
   updateBloodRequest,
   deleteBloodRequest
 } = require('../controllers/bloodRequestController');
+const { getMatches, runMatching } = require('../controllers/matchingController');
 
 router.route('/').post(createBloodRequest).get(getBloodRequests);
+router.get('/:id/matches', getMatches);
+router.post('/:id/matches', runMatching);
 router
   .route('/:id')
   .get(getBloodRequestById)
