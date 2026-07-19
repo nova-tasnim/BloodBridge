@@ -15,13 +15,15 @@ require('./models/Admin');
 require('./models/DonationRecord');
 require('./models/BloodRequest');
 require('./models/Inventory');
+require('./models/Campaign');
+require('./models/CampaignRegistration');
 
 const donorRoutes = require('./routes/donorRoutes');
 const donationRoutes = require('./routes/donationRoutes');
 const bloodRequestRoutes = require('./routes/bloodRequestRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const app = express();
-
+const campaignRoutes = require('./routes/campaignRoutes');
 connectDB();
 
 app.use(cors());
@@ -33,6 +35,7 @@ app.use('/api/donors', donorRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/requests', bloodRequestRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/campaigns', campaignRoutes);
 app.use((req, res) =>
   res.status(404).json({ success: false, message: 'Route not found' })
 );
