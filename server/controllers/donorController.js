@@ -1,5 +1,6 @@
 const Donor = require('../models/Donor');
 const { checkEligibility } = require('../services/eligibilityService');
+const { searchDonors } = require('../services/donorSearchService');
 
 // POST /api/donors
 exports.createDonor = async (req, res) => {
@@ -9,27 +10,18 @@ exports.createDonor = async (req, res) => {
   res.status(201).json({ success: true, data: output });
 };
 
-// GET /api/donors
+// GET /api/donors — Feature 4: search & filter
 exports.getDonors = async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 20;
-
-  const filter = { isActive: true };
-  if (req.query.bloodGroup) filter.bloodGroup = req.query.bloodGroup;
-  if (req.query.isAvailable) filter.isAvailable = req.query.isAvailable === 'true';
-
-  const [donors, total] = await Promise.all([
-    Donor.find(filter).skip((page - 1) * limit).limit(limit).sort({ createdAt: -1 }),
-    Donor.countDocuments(filter)
-  ]);
+  const { results, total, page, pages, appliedFilters } = await searchDonors(req.query);
 
   res.json({
     success: true,
-    count: donors.length,
+    count: results.length,
     total,
     page,
-    pages: Math.ceil(total / limit),
-    data: donors
+    pages,
+    appliedFilters,
+    data: results
   });
 };
 
@@ -42,10 +34,11 @@ exports.getDonorById = async (req, res) => {
 
 // PUT /api/donors/:id
 exports.updateDonor = async (req, res) => {
-  delete req.body.password;
-  delete req.body.role;
+  const body = req.body || {};
+  delete body.password;
+  delete body.role;
 
-  const donor = await Donor.findByIdAndUpdate(req.params.id, req.body, {
+  const donor = await Donor.findByIdAndUpdate(req.params.id, body, {
     new: true,
     runValidators: true
   });
@@ -92,6 +85,7 @@ exports.toggleAvailability = async (req, res) => {
     typeof body.isAvailable === 'boolean'
       ? body.isAvailable
       : !donor.isAvailable;
+
   await donor.save();
 
   res.json({
