@@ -13,9 +13,11 @@ require('./models/Hospital');
 require('./models/BloodBank');
 require('./models/Admin');
 require('./models/DonationRecord');
+require('./models/BloodRequest');
 
 const donorRoutes = require('./routes/donorRoutes');
 const donationRoutes = require('./routes/donationRoutes');
+const bloodRequestRoutes = require('./routes/bloodRequestRoutes');
 
 const app = express();
 
@@ -28,6 +30,7 @@ app.get('/', (req, res) => res.send('BloodBridge API is running'));
 
 app.use('/api/donors', donorRoutes);
 app.use('/api/donations', donationRoutes);
+app.use('/api/requests', bloodRequestRoutes);
 
 app.use((req, res) =>
   res.status(404).json({ success: false, message: 'Route not found' })
