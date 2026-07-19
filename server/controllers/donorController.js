@@ -81,3 +81,26 @@ exports.getDonorEligibility = async (req, res) => {
     }
   });
 };
+
+// PATCH /api/donors/:id/availability — Feature 2
+exports.toggleAvailability = async (req, res) => {
+  const donor = await Donor.findById(req.params.id);
+  if (!donor) return res.status(404).json({ success: false, message: 'Donor not found' });
+
+  const body = req.body || {};
+  donor.isAvailable =
+    typeof body.isAvailable === 'boolean'
+      ? body.isAvailable
+      : !donor.isAvailable;
+  await donor.save();
+
+  res.json({
+    success: true,
+    message: `Donor is now ${donor.isAvailable ? 'available' : 'unavailable'}`,
+    data: {
+      donorId: donor._id,
+      donorName: donor.name,
+      isAvailable: donor.isAvailable
+    }
+  });
+};
