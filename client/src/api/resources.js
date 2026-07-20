@@ -22,7 +22,16 @@ export const requestApi = {
   create: (payload) => api.post('/requests', payload),
   remove: (id) => api.delete(`/requests/${id}`),
   matches: (id, params) => api.get(`/requests/${id}/matches`, { params }),
-  runMatching: (id, payload = {}) => api.post(`/requests/${id}/matches`, payload)
+  runMatching: (id, payload = {}) => api.post(`/requests/${id}/matches`, payload),
+
+  // Feature 9 — lifecycle
+  timeline: (id) => api.get(`/requests/${id}/timeline`),
+  transitions: () => api.get('/requests/lifecycle/transitions'),
+  changeStatus: (id, status) => api.patch(`/requests/${id}/status`, { status }),
+  respond: (id, donorId, decision, reason) =>
+    api.post(`/requests/${id}/respond`, { donorId, decision, reason }),
+  fulfil: (id, donorId, unitsDonated, notes) =>
+    api.post(`/requests/${id}/fulfil`, { donorId, unitsDonated, notes })
 };
 
 export const inventoryApi = {
