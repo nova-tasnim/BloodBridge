@@ -5,7 +5,7 @@ import DonationsPage from './pages/DonationsPage';
 import RequestsPage from './pages/RequestsPage';
 import InventoryPage from './pages/InventoryPage';
 import CampaignsPage from './pages/CampaignsPage';
-
+import QueuePage from './pages/QueuePage';
 export default function App() {
   return (
     <BrowserRouter>
@@ -19,6 +19,7 @@ export default function App() {
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/campaigns" element={<CampaignsPage />} />
           <Route path="*" element={<Navigate to="/donors" replace />} />
+          <Route path="/queue" element={<QueuePage />} />
         </Routes>
       </div>
     </BrowserRouter>

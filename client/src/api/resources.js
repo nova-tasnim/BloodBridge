@@ -59,3 +59,9 @@ export const compatibilityApi = {
   check: (donor, recipient) =>
     api.get('/compatibility/check', { params: { donor, recipient } })
 };
+export const queueApi = {
+  get: (params) => api.get('/queue', { params }),
+  critical: () => api.get('/queue/critical'),
+  weights: () => api.get('/queue/weights'),
+  forRequest: (id) => api.get(`/queue/request/${id}`)
+};
