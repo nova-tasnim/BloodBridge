@@ -16,6 +16,7 @@ require('./models/DonationRecord');
 require('./models/BloodRequest');
 require('./models/Inventory');
 require('./models/Campaign');
+require('./models/DonorResponse');
 require('./models/CampaignRegistration');
 
 const donorRoutes = require('./routes/donorRoutes');
