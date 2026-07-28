@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { InspirationBanner } from '../components/Shared';
 import { donorApi } from '../api/resources';
 import {
   PageHeader, Card, Field, Badge, BloodBadge, Alert, Empty, Loading,
@@ -88,7 +89,7 @@ export default function DonorsPage() {
         title="Donors"
         subtitle="Search and filter registered donors, check eligibility, and manage availability."
       />
-
+      <InspirationBanner />
       <Alert message={error} onDismiss={() => setError('')} />
 
       <Card title="Search & Filter">

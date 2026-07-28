@@ -373,3 +373,68 @@ tbody tr:first-child .rank {
 
 ul { margin: 0 0 10px; padding-left: 18px; }
 li { font-size: 13.5px; margin-bottom: 3px; }
+/* Inspiration banner */
+.inspiration-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(120deg, var(--brand-deep), var(--brand) 60%, #d43a63);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px -6px rgba(179, 18, 60, .35);
+  overflow: hidden;
+  position: relative;
+}
+
+.inspiration-banner::after {
+  content: '';
+  position: absolute;
+  top: -40%; right: -8%;
+  width: 180px; height: 180px;
+  background: rgba(255,255,255,.06);
+  border-radius: 50%;
+}
+
+.inspiration-icon {
+  flex-shrink: 0;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.inspiration-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: opacity 300ms ease, transform 300ms ease;
+  z-index: 1;
+}
+
+.inspiration-text.in { opacity: 1; transform: translateY(0); }
+.inspiration-text.out { opacity: 0; transform: translateY(4px); }
+
+.inspiration-quote {
+  font-size: 14.5px;
+  font-weight: 550;
+  letter-spacing: -.1px;
+  line-height: 1.4;
+}
+
+.inspiration-tag {
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: rgba(255,255,255,.7);
+}
+
+@media (max-width: 640px) {
+  .inspiration-banner { padding: 14px 16px; }
+  .inspiration-quote { font-size: 13.5px; }
+}
