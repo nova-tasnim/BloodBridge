@@ -10,6 +10,8 @@ const donorSchema = new mongoose.Schema({
   lastDonationDate: { type: Date, default: null },
   isAvailable: { type: Boolean, default: true },
   totalDonations: { type: Number, default: 0 },
+  badges: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Badge' }],
+  livesSaved: { type: Number, default: 0 },
   healthFlags: {
     hasChronicIllness: { type: Boolean, default: false },
     onMedication: { type: Boolean, default: false },

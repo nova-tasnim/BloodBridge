@@ -28,6 +28,7 @@ const queueRoutes = require('./routes/queueRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const compatibilityRoutes = require('./routes/compatibilityRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
+const badgeRoutes = require('./routes/badgeRoutes');
 
 connectDB();
 
@@ -36,6 +37,7 @@ app.use(express.json());
 
 app.get('/', (req, res) => res.send('BloodBridge API is running'));
 app.use('/api/queue', queueRoutes);
+app.use('/api/badges', badgeRoutes);
 app.use('/api/donors', donorRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/requests', bloodRequestRoutes);
