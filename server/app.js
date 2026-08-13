@@ -29,7 +29,7 @@ const campaignRoutes = require('./routes/campaignRoutes');
 const compatibilityRoutes = require('./routes/compatibilityRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
 const badgeRoutes = require('./routes/badgeRoutes');
-
+const notificationRoutes = require('./routes/notificationRoutes');
 connectDB();
 
 app.use(cors());
@@ -45,6 +45,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/compatibility', compatibilityRoutes);
 app.use('/api/reminders', reminderRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use((req, res) =>
   res.status(404).json({ success: false, message: 'Route not found' })
 );
