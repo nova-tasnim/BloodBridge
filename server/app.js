@@ -24,9 +24,15 @@ const donationRoutes = require('./routes/donationRoutes');
 const bloodRequestRoutes = require('./routes/bloodRequestRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const app = express();
+const bloodDriveRoutes = require('./routes/bloodDriveRoutes');
+
 const queueRoutes = require('./routes/queueRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const compatibilityRoutes = require('./routes/compatibilityRoutes');
+const reminderRoutes = require('./routes/reminderRoutes');
+const badgeRoutes = require('./routes/badgeRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 connectDB();
 
 app.use(cors());
@@ -34,12 +40,17 @@ app.use(express.json());
 
 app.get('/', (req, res) => res.send('BloodBridge API is running'));
 app.use('/api/queue', queueRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/blood-drives', bloodDriveRoutes);
+app.use('/api/badges', badgeRoutes);
 app.use('/api/donors', donorRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/requests', bloodRequestRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/compatibility', compatibilityRoutes);
+app.use('/api/reminders', reminderRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use((req, res) =>
   res.status(404).json({ success: false, message: 'Route not found' })
 );
