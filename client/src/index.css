@@ -438,3 +438,19 @@ li { font-size: 13.5px; margin-bottom: 3px; }
   .inspiration-banner { padding: 14px 16px; }
   .inspiration-quote { font-size: 13.5px; }
 }
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  min-width: 320px;
+}
+
+img,
+svg {
+  max-width: 100%;
+}

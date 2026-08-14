@@ -1,0 +1,97 @@
+:root {
+  /* BloodBridge theme */
+  --color-primary: #e63950;
+  --color-primary-dark: #c72a3f;
+  --color-primary-light: #ff5c72;
+  --color-accent: #4fd1c5;
+
+  /* Backgrounds */
+  --color-bg-base: #faf9fb;
+  --color-bg-elevated: #ffffff;
+  --color-bg-card: #ffffff;
+
+  /* Text */
+  --color-text-primary: #16151a;
+  --color-text-secondary: #797585;
+
+  /* Borders */
+  --color-border: rgba(22, 21, 26, 0.08);
+
+  /* Gradients */
+  --gradient-hero: linear-gradient(
+    135deg,
+    #e63950 0%,
+    #c72a3f 50%,
+    #7d1a29 100%
+  );
+
+  --gradient-glow: radial-gradient(
+    circle at top right,
+    rgba(230, 57, 80, 0.10),
+    transparent 60%
+  );
+
+  /* Shadows */
+  --shadow-soft:
+    0 4px 24px rgba(22, 21, 26, 0.08);
+
+  --shadow-glow:
+    0 0 40px rgba(230, 57, 80, 0.18);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+}
+
+/* Modern background */
+body {
+  background-color: var(--color-bg-base);
+  background-image: var(--gradient-glow);
+  background-attachment: fixed;
+}
+
+/* Generic elevated card */
+.card {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Primary button enhancement */
+button:not(.secondary) {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+button:not(.secondary):hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Smooth links */
+a {
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+/* Better mobile behavior */
+@media (max-width: 640px) {
+  .page {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .card {
+    padding: 16px;
+    border-radius: var(--radius-md);
+  }
+}

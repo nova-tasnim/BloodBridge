@@ -18,8 +18,9 @@ export default function App() {
           <Route path="/requests" element={<RequestsPage />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/campaigns" element={<CampaignsPage />} />
-          <Route path="*" element={<Navigate to="/donors" replace />} />
           <Route path="/queue" element={<QueuePage />} />
+          <Route path="*" element={<Navigate to="/donors" replace />} />
+
         </Routes>
       </div>
     </BrowserRouter>
