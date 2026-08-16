@@ -1,26 +1,20 @@
-import { useEffect, useState } from 'react';
-import {
-  MapContainer,
-  Marker,
-  Popup,
-  TileLayer
-} from 'react-leaflet';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import '../utils/leafletIconFix';
-
-const DHAKA_CENTER = [23.8103, 90.4125];
 
 const URGENCY_COLORS = {
   critical: 'red',
   urgent: 'orange',
-  routine: 'green'
+  routine: 'gold'
 };
 
-export default function RequestMap() {
+function RequestMap() {
+  const { t } = useTranslation();
+
   const [requests, setRequests] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [usingNearby, setUsingNearby] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -29,12 +23,10 @@ export default function RequestMap() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const { latitude, longitude } = coords;
+      (position) => {
+        const { latitude, longitude } = position.coords;
 
         setUserLocation([latitude, longitude]);
-        setUsingNearby(true);
-
         fetchNearbyRequests(latitude, longitude);
       },
       () => {
@@ -43,25 +35,22 @@ export default function RequestMap() {
     );
   }, []);
 
-  async function fetchNearbyRequests(latitude, longitude) {
+  async function fetchNearbyRequests(lat, lng) {
     try {
-      setLoading(true);
-      setError('');
-
       const response = await fetch(
-        `/api/map/nearby?latitude=${latitude}&longitude=${longitude}&radiusKm=25`
+        `/api/map/nearby?latitude=${lat}&longitude=${lng}&radiusKm=25`
       );
 
       if (!response.ok) {
-        throw new Error('Failed to load nearby requests');
+        throw new Error('Failed to fetch nearby requests');
       }
 
       const result = await response.json();
 
       setRequests(result.data || []);
     } catch (err) {
-      console.error(err);
-      setError('Could not load nearby blood requests.');
+      console.error(t('map.failedToLoad'), err);
+      await fetchAllRequests();
     } finally {
       setLoading(false);
     }
@@ -69,174 +58,116 @@ export default function RequestMap() {
 
   async function fetchAllRequests() {
     try {
-      setLoading(true);
-      setError('');
-      setUsingNearby(false);
-      setUserLocation(DHAKA_CENTER);
-
       const response = await fetch('/api/map/all-active');
 
       if (!response.ok) {
-        throw new Error('Failed to load active requests');
+        throw new Error('Failed to fetch active requests');
       }
 
       const result = await response.json();
 
       setRequests(result.data || []);
+      setUserLocation([23.8103, 90.4125]);
     } catch (err) {
-      console.error(err);
-      setError('Could not load active blood requests.');
+      console.error(t('map.failedToLoad'), err);
+      setRequests([]);
+      setUserLocation([23.8103, 90.4125]);
     } finally {
       setLoading(false);
     }
   }
 
+  if (loading || !userLocation) {
+    return <div className="card">{t('map.loading')}</div>;
+  }
+
   return (
-    <div className="card">
-      <div style={{ marginBottom: '16px' }}>
-        <h2 style={{ marginBottom: '6px' }}>
-          Nearby Active Blood Requests
-        </h2>
+    <div
+      className="card"
+      style={{
+        padding: 0,
+        overflow: 'hidden',
+        height: '500px'
+      }}
+    >
+      <MapContainer
+        center={userLocation}
+        zoom={12}
+        style={{
+          height: '100%',
+          width: '100%'
+        }}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution="&copy; OpenStreetMap contributors"
+        />
 
-        <p style={{ margin: 0 }}>
-          {usingNearby
-            ? 'Showing requests within 25 km of your location.'
-            : 'Showing all active requests. Location access was unavailable.'}
-        </p>
-      </div>
+        {requests.map((request) => {
+          const coordinates = request.location?.coordinates;
 
-      {error && (
-        <div
-          style={{
-            padding: '12px',
-            marginBottom: '12px',
-            borderRadius: '8px',
-            background: '#fee2e2',
-            color: '#991b1b'
-          }}
-        >
-          {error}
-        </div>
-      )}
+          if (!coordinates || coordinates.length !== 2) {
+            return null;
+          }
 
-      {loading ? (
-        <div style={{ padding: '30px', textAlign: 'center' }}>
-          Loading map...
-        </div>
-      ) : userLocation ? (
-        <MapContainer
-          center={userLocation}
-          zoom={12}
-          style={{
-            height: '500px',
-            width: '100%',
-            borderRadius: '10px'
-          }}
-        >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution="&copy; OpenStreetMap contributors"
-          />
+          return (
+            <Marker
+              key={request._id}
+              position={[
+                coordinates[1],
+                coordinates[0]
+              ]}
+            >
+              <Popup>
+                <strong>
+                  {request.bloodGroup} {t('map.bloodNeeded')}
+                </strong>
 
-          {requests.map((request) => {
-            const coordinates = request.location?.coordinates;
+                <br />
 
-            if (
-              !Array.isArray(coordinates) ||
-              coordinates.length !== 2
-            ) {
-              return null;
-            }
+                {t('map.units')}: {request.unitsNeeded}
 
-            const longitude = coordinates[0];
-            const latitude = coordinates[1];
+                <br />
 
-            return (
-              <Marker
-                key={request._id}
-                position={[latitude, longitude]}
-              >
-                <Popup>
-                  <div style={{ minWidth: '220px' }}>
-                    <h3 style={{ marginTop: 0 }}>
-                      {request.bloodGroup} Blood Needed
-                    </h3>
+                {t('map.urgency')}:{' '}
+                <span
+                  style={{
+                    color:
+                      URGENCY_COLORS[request.urgency] || 'black'
+                  }}
+                >
+                  {t(`common.${request.urgency}`)}
+                </span>
 
-                    <p>
-                      <strong>Patient:</strong>{' '}
-                      {request.patientName}
-                    </p>
+                <br />
 
-                    <p>
-                      <strong>Units:</strong>{' '}
-                      {request.unitsRemaining ?? request.unitsNeeded}
-                    </p>
+                {t('map.location')}: {request.location?.address || '—'}
 
-                    <p>
-                      <strong>Urgency:</strong>{' '}
-                      <span
-                        style={{
-                          color:
-                            URGENCY_COLORS[request.urgency] ||
-                            'black',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        {request.urgency}
-                      </span>
-                    </p>
+                {request.isSOS && (
+                  <>
+                    <br />
+                    <strong style={{ color: 'red' }}>
+                      {t('map.sosEmergency')}
+                    </strong>
+                  </>
+                )}
 
-                    <p>
-                      <strong>Hospital:</strong>{' '}
-                      {request.hospitalName || 'Not specified'}
-                    </p>
+                <br />
 
-                    <p>
-                      <strong>Location:</strong>{' '}
-                      {request.location?.address ||
-                        'Not specified'}
-                    </p>
-
-                    <p>
-                      <strong>Status:</strong>{' '}
-                      {request.status}
-                    </p>
-
-                    {request.isSOS && (
-                      <p
-                        style={{
-                          color: 'red',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        SOS EMERGENCY
-                      </p>
-                    )}
-
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      style={{ marginTop: '8px' }}
-                      onClick={() => {
-                        console.log(
-                          'Respond to request:',
-                          request._id
-                        );
-                      }}
-                    >
-                      Respond
-                    </button>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
-        </MapContainer>
-      ) : (
-        <div style={{ padding: '30px', textAlign: 'center' }}>
-          Map location unavailable.
-        </div>
-      )}
+                <button
+                  className="btn-primary"
+                  style={{ marginTop: '8px' }}
+                  type="button"
+                >
+                  {t('map.respond')}
+                </button>
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MapContainer>
     </div>
   );
 }
+
+export default RequestMap;

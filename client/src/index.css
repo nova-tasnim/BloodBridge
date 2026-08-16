@@ -717,3 +717,17 @@ svg {
     flex-direction: column;
   }
 }
+.language-toggle {
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  padding: 0.45rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.language-toggle:hover {
+  opacity: 0.8;
+}
