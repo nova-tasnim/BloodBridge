@@ -18,7 +18,7 @@ require('./models/Inventory');
 require('./models/Campaign');
 require('./models/DonorResponse');
 require('./models/CampaignRegistration');
-
+const feedbackRoutes = require('./routes/feedbackRoutes');
 const donorRoutes = require('./routes/donorRoutes');
 const donationRoutes = require('./routes/donationRoutes');
 const bloodRequestRoutes = require('./routes/bloodRequestRoutes');
@@ -47,6 +47,7 @@ app.use('/api/donors', donorRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/requests', bloodRequestRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/feedback', feedbackRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/compatibility', compatibilityRoutes);
 app.use('/api/reminders', reminderRoutes);
