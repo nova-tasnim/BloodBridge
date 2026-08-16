@@ -96,5 +96,28 @@
         "tag": "Reality"
       }
     ]
+  },
+  "donations": {
+    "title": "Donation History",
+    "subtitle": "Log donations and view a donor's record. Logging a donation updates the donor's next-eligible date automatically.",
+    "logDonation": "Log a Donation",
+    "donorId": "Donor ID",
+    "unitsDonated": "Units Donated",
+    "location": "Location",
+    "locationPlaceholder": "Dhaka Medical College Blood Bank",
+    "notes": "Notes",
+    "recordDonation": "Record Donation",
+    "recordedSuccess": "Donation recorded. The donor's eligibility has been updated.",
+    "viewHistory": "View History",
+    "loadHistory": "Load History",
+    "statistics": "Statistics",
+    "donationCount": "donation(s)",
+    "unitCount": "unit(s)",
+    "lastOn": "Last on",
+    "records": "Records",
+    "noDonations": "No donations recorded for this donor.",
+    "date": "Date",
+    "group": "Group",
+    "units": "Units"
   }
 }
