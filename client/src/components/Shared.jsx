@@ -8,6 +8,7 @@ export function Navbar() {
         <NavLink to="/donors">Donors</NavLink>
         <NavLink to="/donations">Donations</NavLink>
         <NavLink to="/requests">Requests</NavLink>
+        <NavLink to="/map">Map</NavLink>
         <NavLink to="/queue">Queue</NavLink>
         <NavLink to="/inventory">Inventory</NavLink>
         <NavLink to="/campaigns">Campaigns</NavLink>
