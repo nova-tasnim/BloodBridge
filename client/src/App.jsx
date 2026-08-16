@@ -5,6 +5,8 @@ import DonationsPage from './pages/DonationsPage';
 import RequestsPage from './pages/RequestsPage';
 import InventoryPage from './pages/InventoryPage';
 import CampaignsPage from './pages/CampaignsPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import MapPage from './pages/MapPage';
 import QueuePage from './pages/QueuePage';
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/campaigns" element={<CampaignsPage />} />
           <Route path="/queue" element={<QueuePage />} />
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/map" element={<MapPage />} />
           <Route path="*" element={<Navigate to="/donors" replace />} />
 
         </Routes>

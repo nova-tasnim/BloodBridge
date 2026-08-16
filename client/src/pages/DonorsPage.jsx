@@ -1,12 +1,23 @@
 import { useState, useEffect } from 'react';
-import { InspirationBanner } from '../components/Shared';
+import { useTranslation } from 'react-i18next';
 import { donorApi } from '../api/resources';
 import {
-  PageHeader, Card, Field, Badge, BloodBadge, Alert, Empty, Loading,
-  BLOOD_GROUPS, formatDate
+  InspirationBanner,
+  PageHeader,
+  Card,
+  Field,
+  Badge,
+  BloodBadge,
+  Alert,
+  Empty,
+  Loading,
+  BLOOD_GROUPS,
+  formatDate
 } from '../components/Shared';
 
 export default function DonorsPage() {
+  const { t } = useTranslation();
+
   const [donors, setDonors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,11 +38,14 @@ export default function DonorsPage() {
   const loadDonors = async (params = {}) => {
     setLoading(true);
     setError('');
+
     try {
       const cleaned = Object.fromEntries(
         Object.entries(params).filter(([, v]) => v !== '' && v != null)
       );
+
       const res = await donorApi.list(cleaned);
+
       setDonors(res.data);
       setAppliedFilters(res.appliedFilters);
     } catch (err) {
@@ -41,7 +55,9 @@ export default function DonorsPage() {
     }
   };
 
-  useEffect(() => { loadDonors(); }, []);
+  useEffect(() => {
+    loadDonors();
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -50,19 +66,32 @@ export default function DonorsPage() {
 
   const handleReset = () => {
     const blank = {
-      bloodGroup: '', isAvailable: '', gender: '',
-      minWeight: '', name: '', lat: '', lng: '', radius: ''
+      bloodGroup: '',
+      isAvailable: '',
+      gender: '',
+      minWeight: '',
+      name: '',
+      lat: '',
+      lng: '',
+      radius: ''
     };
+
     setFilters(blank);
     loadDonors();
   };
 
   const handleToggle = async (donor) => {
     try {
-      await donorApi.toggleAvailability(donor._id, !donor.isAvailable);
+      await donorApi.toggleAvailability(
+        donor._id,
+        !donor.isAvailable
+      );
+
       setDonors((prev) =>
         prev.map((d) =>
-          d._id === donor._id ? { ...d, isAvailable: !d.isAvailable } : d
+          d._id === donor._id
+            ? { ...d, isAvailable: !d.isAvailable }
+            : d
         )
       );
     } catch (err) {
@@ -72,6 +101,7 @@ export default function DonorsPage() {
 
   const handleEligibility = async (donorId) => {
     setError('');
+
     try {
       const res = await donorApi.eligibility(donorId);
       setEligibility(res.data);
@@ -81,139 +111,315 @@ export default function DonorsPage() {
   };
 
   const set = (key) => (e) =>
-    setFilters((f) => ({ ...f, [key]: e.target.value }));
+    setFilters((f) => ({
+      ...f,
+      [key]: e.target.value
+    }));
 
   return (
     <div className="page">
       <PageHeader
-        title="Donors"
-        subtitle="Search and filter registered donors, check eligibility, and manage availability."
+        title={t('donors.title')}
+        subtitle={t('donors.subtitle')}
       />
-      <InspirationBanner />
-      <Alert message={error} onDismiss={() => setError('')} />
 
-      <Card title="Search & Filter">
+      <InspirationBanner />
+
+      <Alert
+        message={error}
+        onDismiss={() => setError('')}
+      />
+
+      {/* Search & Filter */}
+      <Card title={t('donors.searchFilter')}>
         <form onSubmit={handleSearch}>
           <div className="form-row">
-            <Field label="Blood Group">
-              <select value={filters.bloodGroup} onChange={set('bloodGroup')}>
-                <option value="">Any</option>
-                {BLOOD_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+
+            <Field label={t('donors.bloodGroup')}>
+              <select
+                value={filters.bloodGroup}
+                onChange={set('bloodGroup')}
+              >
+                <option value="">
+                  {t('donors.any')}
+                </option>
+
+                {BLOOD_GROUPS.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
               </select>
             </Field>
-            <Field label="Availability">
-              <select value={filters.isAvailable} onChange={set('isAvailable')}>
-                <option value="">Any</option>
-                <option value="true">Available</option>
-                <option value="false">Unavailable</option>
+
+            <Field label={t('donors.availability')}>
+              <select
+                value={filters.isAvailable}
+                onChange={set('isAvailable')}
+              >
+                <option value="">
+                  {t('donors.any')}
+                </option>
+
+                <option value="true">
+                  {t('donors.available')}
+                </option>
+
+                <option value="false">
+                  {t('donors.unavailable')}
+                </option>
               </select>
             </Field>
-            <Field label="Gender">
-              <select value={filters.gender} onChange={set('gender')}>
-                <option value="">Any</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
+
+            <Field label={t('donors.gender')}>
+              <select
+                value={filters.gender}
+                onChange={set('gender')}
+              >
+                <option value="">
+                  {t('donors.any')}
+                </option>
+
+                <option value="male">
+                  {t('donors.male')}
+                </option>
+
+                <option value="female">
+                  {t('donors.female')}
+                </option>
+
+                <option value="other">
+                  {t('donors.other')}
+                </option>
               </select>
             </Field>
-            <Field label="Min Weight (kg)">
-              <input type="number" value={filters.minWeight} onChange={set('minWeight')} placeholder="50" />
+
+            <Field label={t('donors.minWeight')}>
+              <input
+                type="number"
+                value={filters.minWeight}
+                onChange={set('minWeight')}
+                placeholder="50"
+              />
             </Field>
-            <Field label="Name contains">
-              <input value={filters.name} onChange={set('name')} placeholder="e.g. rahman" />
+
+            <Field label={t('donors.nameContains')}>
+              <input
+                value={filters.name}
+                onChange={set('name')}
+                placeholder={t('donors.namePlaceholder')}
+              />
             </Field>
+
           </div>
 
           <div className="form-row">
-            <Field label="Latitude">
-              <input value={filters.lat} onChange={set('lat')} placeholder="23.7808" />
+
+            <Field label={t('donors.latitude')}>
+              <input
+                value={filters.lat}
+                onChange={set('lat')}
+                placeholder="23.7808"
+              />
             </Field>
-            <Field label="Longitude">
-              <input value={filters.lng} onChange={set('lng')} placeholder="90.4203" />
+
+            <Field label={t('donors.longitude')}>
+              <input
+                value={filters.lng}
+                onChange={set('lng')}
+                placeholder="90.4203"
+              />
             </Field>
-            <Field label="Radius (km)">
-              <input type="number" value={filters.radius} onChange={set('radius')} placeholder="5" />
+
+            <Field label={t('donors.radius')}>
+              <input
+                type="number"
+                value={filters.radius}
+                onChange={set('radius')}
+                placeholder="5"
+              />
             </Field>
+
           </div>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button type="submit">Search</button>
-            <button type="button" className="secondary" onClick={handleReset}>Reset</button>
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              marginTop: 4
+            }}
+          >
+            <button type="submit">
+              {t('donors.search')}
+            </button>
+
+            <button
+              type="button"
+              className="secondary"
+              onClick={handleReset}
+            >
+              {t('donors.reset')}
+            </button>
           </div>
         </form>
 
         {appliedFilters && (
-          <div className="muted" style={{ marginTop: 12 }}>
-            <b>Query sent to MongoDB:</b>{' '}
-            <code>{JSON.stringify(appliedFilters)}</code>
+          <div
+            className="muted"
+            style={{ marginTop: 12 }}
+          >
+            <b>{t('donors.querySent')}</b>{' '}
+            <code>
+              {JSON.stringify(appliedFilters)}
+            </code>
           </div>
         )}
       </Card>
 
+      {/* Eligibility */}
       {eligibility && (
-        <Card title={`Eligibility — ${eligibility.donorName}`}>
+        <Card
+          title={`${t('donors.eligibility')} — ${eligibility.donorName}`}
+        >
           <div style={{ marginBottom: 10 }}>
-            {eligibility.eligible
-              ? <Badge type="ok">Eligible to donate</Badge>
-              : <Badge type="bad">Not currently eligible</Badge>}
+            {eligibility.eligible ? (
+              <Badge type="ok">
+                {t('donors.eligible')}
+              </Badge>
+            ) : (
+              <Badge type="bad">
+                {t('donors.notEligible')}
+              </Badge>
+            )}
           </div>
+
           {eligibility.reasons.length > 0 && (
-            <ul style={{ margin: '0 0 10px', paddingLeft: 20 }}>
-              {eligibility.reasons.map((r, i) => (
-                <li key={i} style={{ fontSize: 14 }}>{r}</li>
+            <ul
+              style={{
+                margin: '0 0 10px',
+                paddingLeft: 20
+              }}
+            >
+              {eligibility.reasons.map((reason, index) => (
+                <li
+                  key={index}
+                  style={{ fontSize: 14 }}
+                >
+                  {reason}
+                </li>
               ))}
             </ul>
           )}
+
           <div className="muted">
-            Age {eligibility.age} · Required interval {eligibility.requiredIntervalDays} days ·
-            Days since last donation {eligibility.daysSinceLastDonation ?? '—'} ·
-            Next eligible {formatDate(eligibility.nextEligibleDate)}
+            {t('donors.age')} {eligibility.age}
+            {' · '}
+            {t('donors.requiredInterval')}{' '}
+            {eligibility.requiredIntervalDays} {t('donors.days')}
+            {' · '}
+            {t('donors.daysSinceLastDonation')}{' '}
+            {eligibility.daysSinceLastDonation ?? '—'}
+            {' · '}
+            {t('donors.nextEligible')}{' '}
+            {formatDate(eligibility.nextEligibleDate)}
           </div>
-          <button className="secondary small" style={{ marginTop: 10 }}
-            onClick={() => setEligibility(null)}>Close</button>
+
+          <button
+            className="secondary small"
+            style={{ marginTop: 10 }}
+            onClick={() => setEligibility(null)}
+          >
+            {t('donors.close')}
+          </button>
         </Card>
       )}
 
-      <Card title={`Donors (${donors.length})`}>
-        {loading ? <Loading /> : donors.length === 0 ? (
-          <Empty>No donors match these filters.</Empty>
+      {/* Donor List */}
+      <Card
+        title={`${t('donors.donors')} (${donors.length})`}
+      >
+        {loading ? (
+          <Loading />
+        ) : donors.length === 0 ? (
+          <Empty>
+            {t('donors.noMatch')}
+          </Empty>
         ) : (
           <table>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Group</th>
-                <th>Age</th>
-                <th>Weight</th>
-                <th>Area</th>
-                <th>Donations</th>
-                <th>Last Donated</th>
-                <th>Available</th>
+                <th>{t('donors.name')}</th>
+                <th>{t('donors.group')}</th>
+                <th>{t('donors.age')}</th>
+                <th>{t('donors.weight')}</th>
+                <th>{t('donors.area')}</th>
+                <th>{t('donors.donations')}</th>
+                <th>{t('donors.lastDonated')}</th>
+                <th>{t('donors.availability')}</th>
                 <th></th>
               </tr>
             </thead>
+
             <tbody>
-              {donors.map((d) => (
-                <tr key={d._id}>
-                  <td><b>{d.name}</b><br /><span className="muted">{d.phone}</span></td>
-                  <td><BloodBadge group={d.bloodGroup} /></td>
-                  <td>{d.age ?? '—'}</td>
-                  <td>{d.weightKg} kg</td>
-                  <td>{d.location?.address ?? '—'}</td>
-                  <td>{d.totalDonations}</td>
-                  <td>{formatDate(d.lastDonationDate)}</td>
+              {donors.map((donor) => (
+                <tr key={donor._id}>
+                  <td>
+                    <b>{donor.name}</b>
+                    <br />
+                    <span className="muted">
+                      {donor.phone}
+                    </span>
+                  </td>
+
+                  <td>
+                    <BloodBadge
+                      group={donor.bloodGroup}
+                    />
+                  </td>
+
+                  <td>
+                    {donor.age ?? '—'}
+                  </td>
+
+                  <td>
+                    {donor.weightKg} kg
+                  </td>
+
+                  <td>
+                    {donor.location?.address ?? '—'}
+                  </td>
+
+                  <td>
+                    {donor.totalDonations}
+                  </td>
+
+                  <td>
+                    {formatDate(donor.lastDonationDate)}
+                  </td>
+
                   <td>
                     <button
-                      className={d.isAvailable ? 'small' : 'small secondary'}
-                      onClick={() => handleToggle(d)}
+                      className={
+                        donor.isAvailable
+                          ? 'small'
+                          : 'small secondary'
+                      }
+                      onClick={() => handleToggle(donor)}
                     >
-                      {d.isAvailable ? 'Available' : 'Unavailable'}
+                      {donor.isAvailable
+                        ? t('donors.available')
+                        : t('donors.unavailable')}
                     </button>
                   </td>
+
                   <td>
-                    <button className="small secondary"
-                      onClick={() => handleEligibility(d._id)}>
-                      Check
+                    <button
+                      className="small secondary"
+                      onClick={() =>
+                        handleEligibility(donor._id)
+                      }
+                    >
+                      {t('donors.check')}
                     </button>
                   </td>
                 </tr>

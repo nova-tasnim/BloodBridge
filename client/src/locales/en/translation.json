@@ -1,0 +1,123 @@
+﻿{
+  "nav": {
+    "donors": "Donors",
+    "donations": "Donations",
+    "requests": "Requests",
+    "queue": "Queue",
+    "inventory": "Inventory",
+    "campaigns": "Campaigns",
+    "map": "Map"
+  },
+
+  "map": {
+    "title": "Nearby Active Blood Requests",
+    "loading": "Loading map...",
+    "bloodNeeded": "Blood Needed",
+    "units": "Units",
+    "urgency": "Urgency",
+    "location": "Location",
+    "sosEmergency": "Emergency SOS",
+    "respond": "Respond",
+    "permissionDenied": "Location permission was denied. Showing all active requests.",
+    "failedToLoad": "Failed to load blood requests."
+  },
+
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "matched": "Matched",
+    "accepted": "Accepted",
+    "fulfilled": "Fulfilled",
+    "critical": "Critical",
+    "urgent": "Urgent",
+    "routine": "Routine"
+  },
+
+  "donors": {
+    "title": "Donors",
+    "subtitle": "Search and filter registered donors, check eligibility, and manage availability.",
+    "searchFilter": "Search & Filter",
+    "bloodGroup": "Blood Group",
+    "availability": "Availability",
+    "gender": "Gender",
+    "minWeight": "Min Weight (kg)",
+    "nameContains": "Name contains",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "radius": "Radius (km)",
+    "any": "Any",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "male": "Male",
+    "female": "Female",
+    "other": "Other",
+    "search": "Search",
+    "reset": "Reset",
+    "querySent": "Query sent to MongoDB:",
+    "eligibility": "Eligibility",
+    "eligible": "Eligible to donate",
+    "notEligible": "Not currently eligible to donate",
+    "age": "Age",
+    "requiredInterval": "Required interval",
+    "daysSinceLastDonation": "Days since last donation",
+    "nextEligible": "Next eligible date",
+    "close": "Close",
+    "donors": "Donors",
+    "noMatch": "No donors match these filters.",
+    "name": "Name",
+    "group": "Group",
+    "weight": "Weight",
+    "area": "Area",
+    "donations": "Donations",
+    "lastDonated": "Last Donated",
+    "check": "Check",
+    "namePlaceholder": "e.g. rahman",
+    "days": "days"
+  },
+
+  "inspiration": {
+    "quotes": [
+      {
+        "text": "One donation can help save the lives of up to three people in need.",
+        "tag": "Impact"
+      },
+      {
+        "text": "Somewhere in Dhaka right now, a hospital may be waiting for exactly your blood type.",
+        "tag": "Urgency"
+      },
+      {
+        "text": "Blood cannot be manufactured — it only exists because someone chose to donate.",
+        "tag": "Reality"
+      }
+    ]
+  },
+  "donations": {
+    "title": "Donation History",
+    "subtitle": "Log donations and view a donor's record. Logging a donation updates the donor's next-eligible date automatically.",
+    "logDonation": "Log a Donation",
+    "donorId": "Donor ID",
+    "unitsDonated": "Units Donated",
+    "location": "Location",
+    "locationPlaceholder": "Dhaka Medical College Blood Bank",
+    "notes": "Notes",
+    "recordDonation": "Record Donation",
+    "recordedSuccess": "Donation recorded. The donor's eligibility has been updated.",
+    "viewHistory": "View History",
+    "loadHistory": "Load History",
+    "statistics": "Statistics",
+    "donationCount": "donation(s)",
+    "unitCount": "unit(s)",
+    "lastOn": "Last on",
+    "records": "Records",
+    "noDonations": "No donations recorded for this donor.",
+    "date": "Date",
+    "group": "Group",
+    "units": "Units"
+  }
+}
