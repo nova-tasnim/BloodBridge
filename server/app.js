@@ -26,7 +26,7 @@ const bloodRequestRoutes = require('./routes/bloodRequestRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const app = express();
 const bloodDriveRoutes = require('./routes/bloodDriveRoutes');
-
+const mapRoutes = require('./routes/mapRoutes');
 const queueRoutes = require('./routes/queueRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const compatibilityRoutes = require('./routes/compatibilityRoutes');
@@ -50,6 +50,7 @@ app.use('/api/requests', bloodRequestRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/map', mapRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/compatibility', compatibilityRoutes);
 app.use('/api/reminders', reminderRoutes);
