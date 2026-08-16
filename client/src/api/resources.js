@@ -65,3 +65,24 @@ export const queueApi = {
   weights: () => api.get('/queue/weights'),
   forRequest: (id) => api.get(`/queue/request/${id}`)
 };
+export const adminApi = {
+  overview: () => api.get('/admin/overview'),
+
+  shortageTrends: () =>
+    api.get('/admin/shortage-trends'),
+
+  donorRetention: () =>
+    api.get('/admin/donor-retention'),
+
+  pendingVerifications: () =>
+    api.get('/admin/pending-verifications'),
+
+  users: (params) =>
+    api.get('/admin/users', { params }),
+
+  verifyInstitution: (userId) =>
+    api.patch(`/admin/verify/${userId}`),
+
+  deactivateUser: (userId) =>
+    api.patch(`/admin/users/${userId}/deactivate`)
+};
