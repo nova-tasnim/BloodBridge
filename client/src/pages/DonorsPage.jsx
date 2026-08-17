@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { donorApi } from '../api/resources';
+import Hero from '../components/Hero';
 import {
   InspirationBanner,
   PageHeader,
@@ -17,6 +19,8 @@ import {
 
 export default function DonorsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const directoryRef = useRef(null);
 
   const [donors, setDonors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -118,12 +122,21 @@ export default function DonorsPage() {
 
   return (
     <div className="page">
-      <PageHeader
-        title={t('donors.title')}
-        subtitle={t('donors.subtitle')}
+      <Hero
+        onPrimaryAction={() => navigate('/requests')}
+        onSecondaryAction={() =>
+          directoryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
       />
 
-      <InspirationBanner />
+      <div ref={directoryRef}>
+        <PageHeader
+          title={t('donors.title')}
+          subtitle={t('donors.subtitle')}
+        />
+
+        <InspirationBanner />
+      </div>
 
       <Alert
         message={error}
