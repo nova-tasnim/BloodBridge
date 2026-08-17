@@ -345,5 +345,82 @@
     "completed": "Completed",
     "cancelled": "Cancelled"
    }
+  },
+  "admin": {
+  "title": "Admin Dashboard",
+  "subtitle": "Monitor and manage the BloodBridge platform.",
+  "loading": "Loading admin dashboard...",
+  "refresh": "Refresh",
+  "confirmDeactivate": "Are you sure you want to deactivate this user?",
+
+  "overview": {
+    "totalDonors": "Total Donors",
+    "totalPatients": "Total Patients",
+    "hospitals": "Hospitals",
+    "bloodBanks": "Blood Banks",
+    "allRequests": "All Requests",
+    "thisMonth": "This Month",
+    "fulfillmentRate": "Fulfillment Rate"
+  },
+
+  "retention": {
+    "title": "Donor Retention",
+    "donorsWithDonations": "Donors with Donations",
+    "oneTimeDonors": "One-Time Donors",
+    "repeatDonors": "Repeat Donors",
+    "highlyActive": "Highly Active",
+    "retentionRate": "Retention Rate"
+  },
+
+  "verifications": {
+    "title": "Pending Verifications",
+    "subtitle": "Hospitals and blood banks awaiting verification.",
+    "empty": "No pending verifications.",
+    "verify": "Verify"
+  },
+
+  "users": {
+    "title": "User Management",
+    "subtitle": "Search, filter and manage platform users.",
+    "searchPlaceholder": "Search name or email...",
+    "allRoles": "All roles",
+    "search": "Search",
+    "deactivate": "Deactivate",
+    "deactivated": "Deactivated",
+    "noUsers": "No users found."
+  },
+
+  "roles": {
+    "donor": "Donor",
+    "patient": "Patient",
+    "hospital": "Hospital",
+    "bloodBank": "Blood Bank"
+  },
+
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+
+  "table": {
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "created": "Created",
+    "action": "Action",
+    "bloodGroup": "Blood Group",
+    "status": "Status",
+    "available": "Available"
+  },
+
+  "trends": {
+    "title": "Blood Request Trends",
+    "requests": "requests"
+  },
+
+  "common": {
+    "yes": "Yes",
+    "no": "No"
+  }
   }
 }
