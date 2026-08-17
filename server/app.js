@@ -7,6 +7,7 @@ const errorHandler = require('./middleware/errorHandler');
 
 // Models registered before routes so discriminators load
 require('./models/User');
+require('./models/KnowledgeChunk');
 require('./models/Donor');
 require('./models/Patient');
 require('./models/Hospital');
@@ -25,6 +26,7 @@ const donationRoutes = require('./routes/donationRoutes');
 const bloodRequestRoutes = require('./routes/bloodRequestRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const app = express();
+const assistantRoutes = require('./routes/assistantRoutes');
 const bloodDriveRoutes = require('./routes/bloodDriveRoutes');
 const mapRoutes = require('./routes/mapRoutes');
 const queueRoutes = require('./routes/queueRoutes');
@@ -54,6 +56,7 @@ app.use('/api/map', mapRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/compatibility', compatibilityRoutes);
 app.use('/api/reminders', reminderRoutes);
+app.use('/api/assistant', assistantRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use((req, res) =>
   res.status(404).json({ success: false, message: 'Route not found' })
