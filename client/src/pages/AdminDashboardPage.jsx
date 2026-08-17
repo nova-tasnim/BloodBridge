@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../api/resources';
 
 export default function AdminDashboardPage() {
+  const { t } = useTranslation();
+
   const [overview, setOverview] = useState(null);
   const [retention, setRetention] = useState(null);
   const [trends, setTrends] = useState(null);
@@ -70,7 +73,7 @@ export default function AdminDashboardPage() {
 
   const deactivateUser = async (userId) => {
     const confirmed = window.confirm(
-      'Are you sure you want to deactivate this user?'
+      t('admin.confirmDeactivate')
     );
 
     if (!confirmed) return;
@@ -105,7 +108,9 @@ export default function AdminDashboardPage() {
   if (loading) {
     return (
       <main className="admin-page">
-        <div className="admin-loading">Loading admin dashboard...</div>
+        <div className="admin-loading">
+          {t('admin.loading')}
+        </div>
       </main>
     );
   }
@@ -114,15 +119,15 @@ export default function AdminDashboardPage() {
     <main className="admin-page">
       <div className="admin-header">
         <div>
-          <h1>Admin Dashboard</h1>
-          <p>Monitor and manage the BloodBridge platform.</p>
+          <h1>{t('admin.title')}</h1>
+          <p>{t('admin.subtitle')}</p>
         </div>
 
         <button
           className="admin-refresh"
           onClick={loadDashboard}
         >
-          Refresh
+          {t('admin.refresh')}
         </button>
       </div>
 
@@ -136,37 +141,37 @@ export default function AdminDashboardPage() {
       {overview && (
         <section className="admin-stats">
           <StatCard
-            title="Total Donors"
+            title={t('admin.overview.totalDonors')}
             value={overview.totalDonors}
           />
 
           <StatCard
-            title="Total Patients"
+            title={t('admin.overview.totalPatients')}
             value={overview.totalPatients}
           />
 
           <StatCard
-            title="Hospitals"
+            title={t('admin.overview.hospitals')}
             value={overview.totalHospitals}
           />
 
           <StatCard
-            title="Blood Banks"
+            title={t('admin.overview.bloodBanks')}
             value={overview.totalBloodBanks}
           />
 
           <StatCard
-            title="All Requests"
+            title={t('admin.overview.allRequests')}
             value={overview.totalRequestsAllTime}
           />
 
           <StatCard
-            title="This Month"
+            title={t('admin.overview.thisMonth')}
             value={overview.totalRequestsThisMonth}
           />
 
           <StatCard
-            title="Fulfillment Rate"
+            title={t('admin.overview.fulfillmentRate')}
             value={overview.fulfillmentRate}
           />
         </section>
@@ -176,32 +181,32 @@ export default function AdminDashboardPage() {
       {retention && (
         <section className="admin-card">
           <div className="section-title">
-            <h2>Donor Retention</h2>
+            <h2>{t('admin.retention.title')}</h2>
           </div>
 
           <div className="retention-grid">
             <Metric
-              label="Donors with Donations"
+              label={t('admin.retention.donorsWithDonations')}
               value={retention.totalDonorsWithDonations}
             />
 
             <Metric
-              label="One-Time Donors"
+              label={t('admin.retention.oneTimeDonors')}
               value={retention.oneTimeDonors}
             />
 
             <Metric
-              label="Repeat Donors"
+              label={t('admin.retention.repeatDonors')}
               value={retention.repeatDonors}
             />
 
             <Metric
-              label="Highly Active"
+              label={t('admin.retention.highlyActive')}
               value={retention.highlyActiveDonors}
             />
 
             <Metric
-              label="Retention Rate"
+              label={t('admin.retention.retentionRate')}
               value={retention.retentionRate}
             />
           </div>
@@ -212,8 +217,8 @@ export default function AdminDashboardPage() {
       <section className="admin-card">
         <div className="section-title">
           <div>
-            <h2>Pending Verifications</h2>
-            <p>Hospitals and blood banks awaiting verification.</p>
+            <h2>{t('admin.verifications.title')}</h2>
+            <p>{t('admin.verifications.subtitle')}</p>
           </div>
 
           <span className="admin-badge">
@@ -223,18 +228,18 @@ export default function AdminDashboardPage() {
 
         {pending.length === 0 ? (
           <div className="empty-state">
-            No pending verifications.
+            {t('admin.verifications.empty')}
           </div>
         ) : (
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Created</th>
-                  <th>Action</th>
+                  <th>{t('admin.table.name')}</th>
+                  <th>{t('admin.table.email')}</th>
+                  <th>{t('admin.table.role')}</th>
+                  <th>{t('admin.table.created')}</th>
+                  <th>{t('admin.table.action')}</th>
                 </tr>
               </thead>
 
@@ -245,7 +250,9 @@ export default function AdminDashboardPage() {
                     <td>{user.email}</td>
                     <td>{user.role}</td>
                     <td>
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {new Date(
+                        user.createdAt
+                      ).toLocaleDateString()}
                     </td>
                     <td>
                       <button
@@ -254,7 +261,7 @@ export default function AdminDashboardPage() {
                           verifyInstitution(user._id)
                         }
                       >
-                        Verify
+                        {t('admin.verifications.verify')}
                       </button>
                     </td>
                   </tr>
@@ -269,15 +276,15 @@ export default function AdminDashboardPage() {
       <section className="admin-card">
         <div className="section-title">
           <div>
-            <h2>User Management</h2>
-            <p>Search, filter and manage platform users.</p>
+            <h2>{t('admin.users.title')}</h2>
+            <p>{t('admin.users.subtitle')}</p>
           </div>
         </div>
 
         <div className="user-filters">
           <input
             type="text"
-            placeholder="Search name or email..."
+            placeholder={t('admin.users.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
@@ -291,18 +298,28 @@ export default function AdminDashboardPage() {
             value={role}
             onChange={(e) => setRole(e.target.value)}
           >
-            <option value="">All roles</option>
-            <option value="Donor">Donor</option>
-            <option value="Patient">Patient</option>
-            <option value="Hospital">Hospital</option>
-            <option value="BloodBank">Blood Bank</option>
+            <option value="">
+              {t('admin.users.allRoles')}
+            </option>
+            <option value="Donor">
+              {t('admin.roles.donor')}
+            </option>
+            <option value="Patient">
+              {t('admin.roles.patient')}
+            </option>
+            <option value="Hospital">
+              {t('admin.roles.hospital')}
+            </option>
+            <option value="BloodBank">
+              {t('admin.roles.bloodBank')}
+            </option>
           </select>
 
           <button
             className="admin-search"
             onClick={handleSearch}
           >
-            Search
+            {t('admin.users.search')}
           </button>
         </div>
 
@@ -310,13 +327,13 @@ export default function AdminDashboardPage() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Blood Group</th>
-                <th>Status</th>
-                <th>Available</th>
-                <th>Action</th>
+                <th>{t('admin.table.name')}</th>
+                <th>{t('admin.table.email')}</th>
+                <th>{t('admin.table.role')}</th>
+                <th>{t('admin.table.bloodGroup')}</th>
+                <th>{t('admin.table.status')}</th>
+                <th>{t('admin.table.available')}</th>
+                <th>{t('admin.table.action')}</th>
               </tr>
             </thead>
 
@@ -336,15 +353,17 @@ export default function AdminDashboardPage() {
                           : 'status inactive'
                       }
                     >
-                      {user.isActive ? 'Active' : 'Inactive'}
+                      {user.isActive
+                        ? t('admin.status.active')
+                        : t('admin.status.inactive')}
                     </span>
                   </td>
 
                   <td>
                     {user.role === 'Donor'
                       ? user.isAvailable
-                        ? 'Yes'
-                        : 'No'
+                        ? t('admin.common.yes')
+                        : t('admin.common.no')
                       : '-'}
                   </td>
 
@@ -356,11 +375,11 @@ export default function AdminDashboardPage() {
                           deactivateUser(user._id)
                         }
                       >
-                        Deactivate
+                        {t('admin.users.deactivate')}
                       </button>
                     ) : (
                       <span className="disabled-label">
-                        Deactivated
+                        {t('admin.users.deactivated')}
                       </span>
                     )}
                   </td>
@@ -371,7 +390,7 @@ export default function AdminDashboardPage() {
                 <tr>
                   <td colSpan="7">
                     <div className="empty-state">
-                      No users found.
+                      {t('admin.users.noUsers')}
                     </div>
                   </td>
                 </tr>
@@ -385,7 +404,7 @@ export default function AdminDashboardPage() {
       {trends && (
         <section className="admin-card">
           <div className="section-title">
-            <h2>Blood Request Trends</h2>
+            <h2>{t('admin.trends.title')}</h2>
           </div>
 
           <div className="trend-grid">
@@ -397,7 +416,8 @@ export default function AdminDashboardPage() {
                 <strong>{item._id}</strong>
 
                 <span>
-                  {item.totalRequests} requests
+                  {item.totalRequests}{' '}
+                  {t('admin.trends.requests')}
                 </span>
 
                 <div className="trend-statuses">
