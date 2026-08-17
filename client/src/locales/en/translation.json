@@ -422,5 +422,11 @@
     "yes": "Yes",
     "no": "No"
   }
+  },
+  "assistant": {
+  "title": "AI Health Assistant",
+  "placeholder": "Ask about donation eligibility, prep, myths...",
+  "send": "Send",
+  "thinking": "Thinking..."
   }
 }

@@ -86,3 +86,7 @@ export const adminApi = {
   deactivateUser: (userId) =>
     api.patch(`/admin/users/${userId}/deactivate`)
 };
+export const assistantApi = {
+  chat: (message, donorId, language) =>
+    api.post('/assistant/chat', { message, donorId, language })
+};

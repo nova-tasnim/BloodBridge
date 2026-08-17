@@ -7,6 +7,7 @@ import InventoryPage from './pages/InventoryPage';
 import CampaignsPage from './pages/CampaignsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import MapPage from './pages/MapPage';
+import AssistantChat from './components/AssistantChat';
 import QueuePage from './pages/QueuePage';
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/queue" element={<QueuePage />} />
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/map" element={<MapPage />} />
+          <AssistantChat donorId={null} />
           <Route path="*" element={<Navigate to="/donors" replace />} />
 
         </Routes>
