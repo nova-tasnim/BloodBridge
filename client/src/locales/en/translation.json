@@ -238,5 +238,65 @@
   "days": "days",
   "issuePrompt": "How many units to issue?",
   "stockAdded": "Stock added."
+  },
+  "queue": {
+  "title": "Emergency Queue",
+  "subtitle": "Active requests ranked by a live priority score combining urgency, time waited, deadline proximity, and outstanding units.",
+
+  "summary": "Queue Summary",
+  "inQueue": "in queue",
+  "unitsOutstanding": "units outstanding",
+
+  "critical": "critical",
+  "urgent": "urgent",
+  "routine": "routine",
+  "overdue": "overdue",
+
+  "filters": "Filters",
+  "urgency": "Urgency",
+  "bloodGroup": "Blood Group",
+  "status": "Status",
+
+  "all": "All",
+  "any": "Any",
+  "allActive": "All active",
+
+  "criticalLabel": "Critical",
+  "urgentLabel": "Urgent",
+  "routineLabel": "Routine",
+  "pending": "Pending",
+  "matched": "Matched",
+  "accepted": "Accepted",
+
+  "scoringModel": "Scoring Model",
+  "waiting": "Waiting",
+  "pointsPerHour": "pts/hour",
+  "cappedAt": "capped at",
+  "deadline": "Deadline",
+  "within6h": "<6h",
+  "within24h": "<24h",
+  "unmetUnits": "Unmet units",
+  "pointsPerUnit": "pts per unit",
+
+  "refresh": "Refresh",
+  "autoRefresh": "Auto every 30s",
+  "lastRefreshed": "Last refreshed",
+
+  "priorityQueue": "Priority Queue",
+  "empty": "No active requests in the queue.",
+
+  "rank": "#",
+  "patient": "Patient",
+  "group": "Group",
+  "units": "Units",
+  "priority": "Priority",
+  "breakdown": "Breakdown",
+  "sos": "SOS",
+  "short": "short",
+
+  "breakdownUrgency": "urg",
+  "breakdownWaiting": "wait",
+  "breakdownDeadline": "due",
+  "breakdownUnits": "units"
   }
 }
