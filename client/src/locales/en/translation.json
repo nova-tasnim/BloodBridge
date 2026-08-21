@@ -1,4 +1,4 @@
-﻿{
+{
   "nav": {
     "donors": "Donors",
     "donations": "Donations",
@@ -8,7 +8,6 @@
     "campaigns": "Campaigns",
     "map": "Map"
   },
-
   "map": {
     "title": "Nearby Active Blood Requests",
     "loading": "Loading map...",
@@ -21,7 +20,6 @@
     "permissionDenied": "Location permission was denied. Showing all active requests.",
     "failedToLoad": "Failed to load blood requests."
   },
-
   "common": {
     "loading": "Loading...",
     "error": "Something went wrong",
@@ -38,7 +36,6 @@
     "urgent": "Urgent",
     "routine": "Routine"
   },
-
   "donors": {
     "title": "Donors",
     "subtitle": "Search and filter registered donors, check eligibility, and manage availability.",
@@ -80,7 +77,6 @@
     "namePlaceholder": "e.g. rahman",
     "days": "days"
   },
-
   "inspiration": {
     "quotes": [
       {
@@ -201,226 +197,220 @@
     "requiredDonorId": "Donor ID is required to respond."
   },
   "inventory": {
-  "title": "Blood Inventory",
-  "subtitle": "Manage stock by group and batch, with automatic low-stock and expiry alerts.",
-
-  "selectBloodBank": "Select Blood Bank",
-  "bloodBankId": "Blood Bank ID",
-  "load": "Load",
-
-  "alerts": "Alerts",
-  "lowStock": "Low Stock",
-  "lowStockLabel": "Low stock",
-  "shortBy": "short by",
-  "expiringSoon": "Expiring Soon",
-  "expired": "Expired",
-  "expiredLabel": "expired",
-  "none": "None",
-
-  "stockSummary": "Stock Summary",
-  "group": "Group",
-  "units": "Units",
-  "threshold": "Threshold",
-  "batches": "Batches",
-  "status": "Status",
-  "sufficient": "Sufficient",
-
-  "addStock": "Add Stock",
-  "bloodGroup": "Blood Group",
-  "expiryDate": "Expiry Date",
-  "batchNumber": "Batch Number",
-  "storage": "Storage",
-
-  "noStock": "No stock recorded.",
-  "batch": "Batch",
-  "expires": "Expires",
-  "issue": "Issue",
-  "days": "days",
-  "issuePrompt": "How many units to issue?",
-  "stockAdded": "Stock added."
+    "title": "Blood Inventory",
+    "subtitle": "Manage stock by group and batch, with automatic low-stock and expiry alerts.",
+    "selectBloodBank": "Select Blood Bank",
+    "bloodBankId": "Blood Bank ID",
+    "load": "Load",
+    "alerts": "Alerts",
+    "lowStock": "Low Stock",
+    "lowStockLabel": "Low stock",
+    "shortBy": "short by",
+    "expiringSoon": "Expiring Soon",
+    "expired": "Expired",
+    "expiredLabel": "expired",
+    "none": "None",
+    "stockSummary": "Stock Summary",
+    "group": "Group",
+    "units": "Units",
+    "threshold": "Threshold",
+    "batches": "Batches",
+    "status": "Status",
+    "sufficient": "Sufficient",
+    "addStock": "Add Stock",
+    "bloodGroup": "Blood Group",
+    "expiryDate": "Expiry Date",
+    "batchNumber": "Batch Number",
+    "storage": "Storage",
+    "noStock": "No stock recorded.",
+    "batch": "Batch",
+    "expires": "Expires",
+    "issue": "Issue",
+    "days": "days",
+    "issuePrompt": "How many units to issue?",
+    "stockAdded": "Stock added."
   },
   "queue": {
-  "title": "Emergency Queue",
-  "subtitle": "Active requests ranked by a live priority score combining urgency, time waited, deadline proximity, and outstanding units.",
-
-  "summary": "Queue Summary",
-  "inQueue": "in queue",
-  "unitsOutstanding": "units outstanding",
-
-  "critical": "critical",
-  "urgent": "urgent",
-  "routine": "routine",
-  "overdue": "overdue",
-
-  "filters": "Filters",
-  "urgency": "Urgency",
-  "bloodGroup": "Blood Group",
-  "status": "Status",
-
-  "all": "All",
-  "any": "Any",
-  "allActive": "All active",
-
-  "criticalLabel": "Critical",
-  "urgentLabel": "Urgent",
-  "routineLabel": "Routine",
-  "pending": "Pending",
-  "matched": "Matched",
-  "accepted": "Accepted",
-
-  "scoringModel": "Scoring Model",
-  "waiting": "Waiting",
-  "pointsPerHour": "pts/hour",
-  "cappedAt": "capped at",
-  "deadline": "Deadline",
-  "within6h": "<6h",
-  "within24h": "<24h",
-  "unmetUnits": "Unmet units",
-  "pointsPerUnit": "pts per unit",
-
-  "refresh": "Refresh",
-  "autoRefresh": "Auto every 30s",
-  "lastRefreshed": "Last refreshed",
-
-  "priorityQueue": "Priority Queue",
-  "empty": "No active requests in the queue.",
-
-  "rank": "#",
-  "patient": "Patient",
-  "group": "Group",
-  "units": "Units",
-  "priority": "Priority",
-  "breakdown": "Breakdown",
-  "sos": "SOS",
-  "short": "short",
-
-  "breakdownUrgency": "urg",
-  "breakdownWaiting": "wait",
-  "breakdownDeadline": "due",
-  "breakdownUnits": "units"
-  },
-  "campaigns": {
-  "title": "Blood Drives",
-  "subtitle": "Create donation campaigns and register donors. Registration reports each donor's current eligibility.",
-  "createdSuccess": "Campaign created.",
-  "donorIdPrompt": "Donor ID to register:",
-  "eligible": "Eligible to donate",
-  "registeredNotEligible": "Registered, but not currently eligible",
-  "nextEligible": "Next eligible",
-  "close": "Close",
-  "createBloodDrive": "Create Blood Drive",
-  "organizerId": "Organizer ID",
-  "titleField": "Title",
-  "description": "Description",
-  "venue": "Venue",
-  "area": "Area",
-  "latitude": "Latitude",
-  "longitude": "Longitude",
-  "startDate": "Start Date",
-  "endDate": "End Date",
-  "targetUnits": "Target Units",
-  "createDrive": "Create Drive",
-  "campaigns": "Campaigns",
-  "noCampaigns": "No campaigns yet.",
-  "tableTitle": "Title",
-  "tableVenue": "Venue",
-  "tableDates": "Dates",
-  "tableStatus": "Status",
-  "registered": "Registered",
-  "progress": "Progress",
-  "register": "Register",
-  "view": "View",
-  "registrations": "Registrations",
-  "noRegistrations": "No one has registered yet.",
-  "donor": "Donor",
-  "group": "Group",
-  "donations": "Donations",
-  "registeredDate": "Registered",
-  "attended": "Attended",
-  "attendedYes": "Attended",
-  "pending": "Pending",
-  "status": {
-    "upcoming": "Upcoming",
-    "ongoing": "Ongoing",
-    "completed": "Completed",
-    "cancelled": "Cancelled"
-   }
-  },
-  "admin": {
-  "title": "Admin Dashboard",
-  "subtitle": "Monitor and manage the BloodBridge platform.",
-  "loading": "Loading admin dashboard...",
-  "refresh": "Refresh",
-  "confirmDeactivate": "Are you sure you want to deactivate this user?",
-
-  "overview": {
-    "totalDonors": "Total Donors",
-    "totalPatients": "Total Patients",
-    "hospitals": "Hospitals",
-    "bloodBanks": "Blood Banks",
-    "allRequests": "All Requests",
-    "thisMonth": "This Month",
-    "fulfillmentRate": "Fulfillment Rate"
-  },
-
-  "retention": {
-    "title": "Donor Retention",
-    "donorsWithDonations": "Donors with Donations",
-    "oneTimeDonors": "One-Time Donors",
-    "repeatDonors": "Repeat Donors",
-    "highlyActive": "Highly Active",
-    "retentionRate": "Retention Rate"
-  },
-
-  "verifications": {
-    "title": "Pending Verifications",
-    "subtitle": "Hospitals and blood banks awaiting verification.",
-    "empty": "No pending verifications.",
-    "verify": "Verify"
-  },
-
-  "users": {
-    "title": "User Management",
-    "subtitle": "Search, filter and manage platform users.",
-    "searchPlaceholder": "Search name or email...",
-    "allRoles": "All roles",
-    "search": "Search",
-    "deactivate": "Deactivate",
-    "deactivated": "Deactivated",
-    "noUsers": "No users found."
-  },
-
-  "roles": {
-    "donor": "Donor",
-    "patient": "Patient",
-    "hospital": "Hospital",
-    "bloodBank": "Blood Bank"
-  },
-
-  "status": {
-    "active": "Active",
-    "inactive": "Inactive"
-  },
-
-  "table": {
-    "name": "Name",
-    "email": "Email",
-    "role": "Role",
-    "created": "Created",
-    "action": "Action",
+    "title": "Emergency Queue",
+    "subtitle": "Active requests ranked by a live priority score combining urgency, time waited, deadline proximity, and outstanding units.",
+    "summary": "Queue Summary",
+    "inQueue": "in queue",
+    "unitsOutstanding": "units outstanding",
+    "critical": "critical",
+    "urgent": "urgent",
+    "routine": "routine",
+    "overdue": "overdue",
+    "filters": "Filters",
+    "urgency": "Urgency",
     "bloodGroup": "Blood Group",
     "status": "Status",
-    "available": "Available"
+    "all": "All",
+    "any": "Any",
+    "allActive": "All active",
+    "criticalLabel": "Critical",
+    "urgentLabel": "Urgent",
+    "routineLabel": "Routine",
+    "pending": "Pending",
+    "matched": "Matched",
+    "accepted": "Accepted",
+    "scoringModel": "Scoring Model",
+    "waiting": "Waiting",
+    "pointsPerHour": "pts/hour",
+    "cappedAt": "capped at",
+    "deadline": "Deadline",
+    "within6h": "<6h",
+    "within24h": "<24h",
+    "unmetUnits": "Unmet units",
+    "pointsPerUnit": "pts per unit",
+    "refresh": "Refresh",
+    "autoRefresh": "Auto every 30s",
+    "lastRefreshed": "Last refreshed",
+    "priorityQueue": "Priority Queue",
+    "empty": "No active requests in the queue.",
+    "rank": "#",
+    "patient": "Patient",
+    "group": "Group",
+    "units": "Units",
+    "priority": "Priority",
+    "breakdown": "Breakdown",
+    "sos": "SOS",
+    "short": "short",
+    "breakdownUrgency": "urg",
+    "breakdownWaiting": "wait",
+    "breakdownDeadline": "due",
+    "breakdownUnits": "units"
   },
-
-  "trends": {
-    "title": "Blood Request Trends",
-    "requests": "requests"
+  "campaigns": {
+    "title": "Blood Drives",
+    "subtitle": "Create donation campaigns and register donors. Registration reports each donor's current eligibility.",
+    "createdSuccess": "Campaign created.",
+    "donorIdPrompt": "Donor ID to register:",
+    "eligible": "Eligible to donate",
+    "registeredNotEligible": "Registered, but not currently eligible",
+    "nextEligible": "Next eligible",
+    "close": "Close",
+    "createBloodDrive": "Create Blood Drive",
+    "organizerId": "Organizer ID",
+    "titleField": "Title",
+    "description": "Description",
+    "venue": "Venue",
+    "area": "Area",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "targetUnits": "Target Units",
+    "createDrive": "Create Drive",
+    "campaigns": "Campaigns",
+    "noCampaigns": "No campaigns yet.",
+    "tableTitle": "Title",
+    "tableVenue": "Venue",
+    "tableDates": "Dates",
+    "tableStatus": "Status",
+    "registered": "Registered",
+    "progress": "Progress",
+    "register": "Register",
+    "view": "View",
+    "registrations": "Registrations",
+    "noRegistrations": "No one has registered yet.",
+    "donor": "Donor",
+    "group": "Group",
+    "donations": "Donations",
+    "registeredDate": "Registered",
+    "attended": "Attended",
+    "attendedYes": "Attended",
+    "pending": "Pending",
+    "status": {
+      "upcoming": "Upcoming",
+      "ongoing": "Ongoing",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
   },
-
-  "common": {
-    "yes": "Yes",
-    "no": "No"
-  }
+  "admin": {
+    "title": "Admin Dashboard",
+    "subtitle": "Monitor and manage the BloodBridge platform.",
+    "loading": "Loading admin dashboard...",
+    "refresh": "Refresh",
+    "confirmDeactivate": "Are you sure you want to deactivate this user?",
+    "overview": {
+      "totalDonors": "Total Donors",
+      "totalPatients": "Total Patients",
+      "hospitals": "Hospitals",
+      "bloodBanks": "Blood Banks",
+      "allRequests": "All Requests",
+      "thisMonth": "This Month",
+      "fulfillmentRate": "Fulfillment Rate"
+    },
+    "retention": {
+      "title": "Donor Retention",
+      "donorsWithDonations": "Donors with Donations",
+      "oneTimeDonors": "One-Time Donors",
+      "repeatDonors": "Repeat Donors",
+      "highlyActive": "Highly Active",
+      "retentionRate": "Retention Rate"
+    },
+    "verifications": {
+      "title": "Pending Verifications",
+      "subtitle": "Hospitals and blood banks awaiting verification.",
+      "empty": "No pending verifications.",
+      "verify": "Verify"
+    },
+    "users": {
+      "title": "User Management",
+      "subtitle": "Search, filter and manage platform users.",
+      "searchPlaceholder": "Search name or email...",
+      "allRoles": "All roles",
+      "search": "Search",
+      "deactivate": "Deactivate",
+      "deactivated": "Deactivated",
+      "noUsers": "No users found."
+    },
+    "roles": {
+      "donor": "Donor",
+      "patient": "Patient",
+      "hospital": "Hospital",
+      "bloodBank": "Blood Bank"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "table": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "created": "Created",
+      "action": "Action",
+      "bloodGroup": "Blood Group",
+      "status": "Status",
+      "available": "Available"
+    },
+    "trends": {
+      "title": "Blood Request Trends",
+      "requests": "requests"
+    },
+    "common": {
+      "yes": "Yes",
+      "no": "No"
+    }
+  },
+  "hero": {
+    "eyebrow": "Live · Community Powered",
+    "titleStart": "Every drop brings someone",
+    "titleHighlight": "closer to home.",
+    "subtitle": "BloodBridge connects donors, patients, hospitals and blood banks in real time — smart matching, live inventory, and instant emergency response, all in one place.",
+    "ctaPrimary": "Request Blood Now",
+    "ctaSecondary": "Browse Donors"
+  },
+  "stats": {
+    "donors": "Registered Donors",
+    "fulfillmentRate": "Fulfillment Rate",
+    "requestsThisMonth": "Requests This Month",
+    "communityMembers": "Community Members",
+    "fact1": "One donation can help save up to three lives.",
+    "fact2": "O-negative donors are universal — compatible with every blood type.",
+    "fact3": "Whole blood donors can typically give again every 90 days.",
+    "fact4": "Blood cannot be manufactured — every unit comes from a real donor."
   }
 }
