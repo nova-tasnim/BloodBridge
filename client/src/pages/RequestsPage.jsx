@@ -71,7 +71,8 @@ export default function RequestsPage() {
     lng: '90.4203',
     address: '',
     contactPhone: '',
-    notes: ''
+    notes: '',
+    isSOS: false
   });
 
   const loadRequests = async (status = '') => {
@@ -99,6 +100,13 @@ export default function RequestsPage() {
     }));
   };
 
+  const toggleSOS = () => {
+    setForm((f) => ({
+      ...f,
+      isSOS: !f.isSOS,
+      urgency: !f.isSOS ? 'critical' : f.urgency
+    }));
+  };
   const refreshTimeline = async (id) => {
     try {
       const res = await requestApi.timeline(id);
@@ -126,7 +134,8 @@ export default function RequestsPage() {
           address: form.address
         },
         contactPhone: form.contactPhone,
-        notes: form.notes
+        notes: form.notes,
+        isSOS: form.isSOS
       });
 
       setNotice(t('requests.createdSuccess'));
@@ -135,7 +144,8 @@ export default function RequestsPage() {
         ...f,
         patientName: '',
         notes: '',
-        contactPhone: ''
+        contactPhone: '',
+        isSOS: false
       }));
 
       loadRequests(filterStatus);
@@ -297,6 +307,23 @@ export default function RequestsPage() {
       <div className="grid grid-2">
         <Card title={t('requests.createRequest')}>
           <form onSubmit={handleCreate}>
+            <button
+              type="button"
+              className={`bb-sos-toggle ${form.isSOS ? 'active' : ''}`}
+              onClick={toggleSOS}
+            >
+              <span className="bb-sos-icon">🚨</span>
+              <span>
+                {form.isSOS
+                  ? t('requests.sosActive')
+                  : t('requests.sosToggle')}
+              </span>
+            </button>
+
+            {form.isSOS && (
+              <p className="bb-sos-note">{t('requests.sosNote')}</p>
+            )}
+
             <Field label={t('requests.requesterUserId')}>
               <input
                 value={form.requester}
@@ -343,6 +370,7 @@ export default function RequestsPage() {
                 <select
                   value={form.urgency}
                   onChange={set('urgency')}
+                  disabled={form.isSOS}
                 >
                   <option value="routine">
                     {t('common.routine')}

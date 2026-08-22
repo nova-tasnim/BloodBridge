@@ -401,3 +401,460 @@ button.secondary::before { display: none; }
    Page transition wrapper
    ============================================================ */
 .bb-page-transition { width: 100%; }
+/* ============================================================
+   AI Assistant chat widget
+   ============================================================ */
+.bb-chat-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand), var(--bb-violet));
+  color: #fff;
+  font-size: 22px;
+  border: none;
+  box-shadow: 0 10px 30px -8px rgba(124, 77, 255, .55);
+  z-index: 200;
+  animation: bb-chat-fab-pulse 2.6s ease-in-out infinite;
+}
+
+.bb-chat-fab::before { display: none; }
+
+@keyframes bb-chat-fab-pulse {
+  0%, 100% { box-shadow: 0 10px 30px -8px rgba(124, 77, 255, .55); }
+  50%      { box-shadow: 0 10px 40px -4px rgba(124, 77, 255, .8); }
+}
+
+.bb-chat-panel {
+  position: fixed;
+  bottom: 98px;
+  right: 28px;
+  width: 360px;
+  height: 480px;
+  background: var(--surface);
+  border-radius: var(--bb-radius-lg);
+  box-shadow: 0 24px 60px -12px rgba(22, 21, 26, .35);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 200;
+  animation: bb-fade-up .25s ease both;
+}
+
+.bb-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 18px;
+  background: linear-gradient(120deg, var(--brand-deep), var(--brand));
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.bb-chat-header-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, .3);
+}
+
+.bb-chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg);
+}
+
+.bb-chat-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 20px;
+}
+
+.bb-chat-bubble {
+  max-width: 82%;
+  padding: 10px 13px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.bb-chat-bubble.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.bb-chat-bubble.assistant {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-bottom-left-radius: 4px;
+}
+
+.bb-chat-typing {
+  display: flex;
+  gap: 4px;
+  padding: 13px 16px;
+}
+
+.bb-chat-typing span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: bb-typing-bounce 1.2s ease-in-out infinite;
+}
+
+.bb-chat-typing span:nth-child(2) { animation-delay: .15s; }
+.bb-chat-typing span:nth-child(3) { animation-delay: .3s; }
+
+@keyframes bb-typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+  30%           { transform: translateY(-4px); opacity: 1; }
+}
+
+.bb-chat-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.bb-chat-input-row textarea {
+  flex: 1;
+  resize: none;
+  max-height: 80px;
+  font-size: 13px;
+}
+
+.bb-chat-input-row button {
+  flex-shrink: 0;
+  padding: 9px 16px;
+}
+
+@media (max-width: 480px) {
+  .bb-chat-panel { width: calc(100vw - 32px); right: 16px; }
+  .bb-chat-fab { right: 16px; }
+}
+.bb-chat-bloodgroup-prompt {
+  padding: 4px 2px 8px;
+}
+
+.bb-chat-bloodgroup-prompt span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.bb-chat-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bb-chat-chip {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform .15s ease, background .15s ease, color .15s ease;
+}
+
+.bb-chat-chip::before { display: none; }
+
+.bb-chat-chip:hover {
+  transform: translateY(-1px);
+  background: var(--brand-soft);
+  color: var(--brand-deep);
+}
+
+.bb-chat-chip-blood.active {
+  background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+  color: #fff;
+  border-color: transparent;
+}
+
+.bb-chat-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.bb-chat-suggestions .bb-chat-chip {
+  text-align: left;
+  border-radius: 12px;
+  white-space: normal;
+}
+.bb-sos-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: var(--surface);
+  border: 2px dashed var(--line);
+  color: var(--ink-2);
+  font-weight: 700;
+  font-size: 13.5px;
+  border-radius: 14px;
+  transition: all .2s ease;
+}
+
+.bb-sos-toggle::before { display: none; }
+
+.bb-sos-toggle:hover {
+  border-color: #d43a63;
+  color: #d43a63;
+}
+
+.bb-sos-icon { font-size: 16px; }
+
+.bb-sos-toggle.active {
+  background: linear-gradient(135deg, #ff3b52, #b3123c);
+  border: 2px solid #ff3b52;
+  color: #fff;
+  animation: bb-sos-pulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(255, 59, 82, .5);
+}
+
+@keyframes bb-sos-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 82, .45); }
+  50%      { box-shadow: 0 0 0 10px rgba(255, 59, 82, 0); }
+}
+
+.bb-sos-note {
+  font-size: 12px;
+  color: #b3123c;
+  background: #fff0f2;
+  border: 1px solid #ffd0d8;
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin: -6px 0 16px;
+}
+/* ============================================================
+   Auth pages (Login / Register)
+   ============================================================ */
+.bb-auth-page {
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+.bb-auth-page .card {
+  width: 100%;
+  max-width: 460px;
+}
+
+.bb-auth-switch {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.bb-auth-switch a {
+  color: var(--brand-deep);
+  font-weight: 700;
+}
+
+/* ============================================================
+   Navbar auth area
+   ============================================================ */
+.bb-navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bb-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, .14);
+  border: 1px solid rgba(255, 255, 255, .25);
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.bb-user-role {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  background: rgba(255, 255, 255, .2);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.bb-user-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bb-logout-btn {
+  background: #fff !important;
+  color: var(--brand-deep) !important;
+  font-size: 11.5px !important;
+  padding: 5px 11px !important;
+  border-radius: 999px !important;
+}
+
+.bb-logout-btn::before { display: none; }
+
+.bb-login-link {
+  background: #fff;
+  color: var(--brand-deep);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 7px 16px;
+  border-radius: 999px;
+}
+/* ============================================================
+   Auth shell — full "locked door" page for /login and /register
+   ============================================================ */
+.bb-auth-shell {
+  min-height: 100vh;
+  display: flex;
+}
+
+.bb-auth-brandpanel {
+  flex: 1 1 46%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 60px 64px;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 45%, var(--bb-violet) 120%);
+  background-size: 220% 220%;
+  animation: bb-navbar-sheen 16s ease infinite;
+}
+
+.bb-auth-brandpanel::before,
+.bb-auth-brandpanel::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(2px);
+}
+
+.bb-auth-brandpanel::before {
+  width: 300px; height: 300px;
+  top: -100px; right: -60px;
+  background: radial-gradient(circle, rgba(255, 255, 255, .14), transparent 70%);
+  animation: bb-orbit 18s linear infinite;
+}
+
+.bb-auth-brandpanel::after {
+  width: 220px; height: 220px;
+  bottom: -80px; left: -40px;
+  background: radial-gradient(circle, rgba(255, 255, 255, .10), transparent 70%);
+  animation: bb-orbit 22s linear infinite reverse;
+}
+
+.bb-auth-brand {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.4px;
+  margin-bottom: 40px;
+}
+
+.bb-auth-logo-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, .25);
+  animation: bb-pulse-dot 2.2s ease-in-out infinite;
+}
+
+.bb-auth-brandpanel h2 {
+  position: relative;
+  z-index: 2;
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 800;
+  max-width: 420px;
+  margin: 0 0 16px;
+  animation: bb-fade-up .7s var(--bb-ease-spring) both;
+}
+
+.bb-auth-tagline {
+  position: relative;
+  z-index: 2;
+  font-size: 15px;
+  color: rgba(255, 255, 255, .85);
+  max-width: 400px;
+  margin: 0 0 40px;
+  animation: bb-fade-up .7s var(--bb-ease-spring) .1s both;
+}
+
+.bb-auth-quote {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  padding: 18px 22px;
+  border-left: 3px solid rgba(255, 255, 255, .5);
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, .92);
+  background: rgba(255, 255, 255, .08);
+  border-radius: 0 12px 12px 0;
+  max-width: 400px;
+  backdrop-filter: blur(4px);
+  animation: bb-fade-up .7s var(--bb-ease-spring) .2s both;
+}
+
+.bb-auth-formpanel {
+  flex: 1 1 54%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: var(--bg);
+}
+
+.bb-auth-formpanel .card {
+  width: 100%;
+  max-width: 440px;
+  animation: bb-fade-up .5s var(--bb-ease-spring) both;
+}
+
+@media (max-width: 900px) {
+  .bb-auth-shell { flex-direction: column; }
+  .bb-auth-brandpanel { padding: 40px 28px; }
+  .bb-auth-brandpanel h2 { font-size: 24px; }
+  .bb-auth-formpanel { padding: 28px; }
+}

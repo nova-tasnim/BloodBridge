@@ -1,5 +1,6 @@
 {
   "nav": {
+    "admin": "Admin",
     "donors": "Donors",
     "donations": "Donations",
     "requests": "Requests",
@@ -117,6 +118,9 @@
     "units": "Units"
   },
   "requests": {
+    "sosToggle": "Mark as Emergency SOS",
+    "sosActive": "🚨 Emergency SOS Active",
+    "sosNote": "This request will be flagged as highest priority and matched immediately.",
     "subtitle": "Create requests, run the matching engine, and move requests through their lifecycle.",
     "title": "Blood Requests",
     "createRequest": "Create Request",
@@ -412,5 +416,58 @@
     "fact2": "O-negative donors are universal — compatible with every blood type.",
     "fact3": "Whole blood donors can typically give again every 90 days.",
     "fact4": "Blood cannot be manufactured — every unit comes from a real donor."
+  },
+  "assistant": {
+  "welcome": "Hi there! 👋 I'm your BloodBridge Health Assistant. Ask me anything about donation eligibility, blood type compatibility, or the donation process.",
+  "selectBloodGroup": "Select your blood type for personalized answers:",
+  "title": "AI Health Assistant",
+  "placeholder": "Ask about eligibility, prep, myths...",
+  "send": "Send",
+  "emptyState": "Ask me anything about blood donation — eligibility, preparation, recovery, or myths.",
+  "errorReply": "Sorry, I couldn't process that right now. Please try again."
+  },
+  "auth": {
+  "loginTitle": "Log In to BloodBridge",
+  "registerTitle": "Create Your Account",
+  "email": "Email",
+  "password": "Password",
+  "name": "Full Name",
+  "phone": "Phone Number",
+  "role": "I am registering as",
+  "login": "Log In",
+  "register": "Create Account",
+  "logout": "Logout",
+  "noAccount": "Don't have an account?",
+  "registerLink": "Register here",
+  "haveAccount": "Already have an account?",
+  "loginLink": "Log in",
+  "roles": {
+    "Donor": "Donor",
+    "Patient": "Patient",
+    "Hospital": "Hospital",
+    "BloodBank": "Blood Bank",
+    "Admin": "Admin"
+  },
+  "bloodGroup": "Blood Group",
+  "gender": "Gender",
+  "dateOfBirth": "Date of Birth",
+  "weightKg": "Weight (kg)",
+  "medicalCondition": "Medical Condition (optional)",
+  "guardianContact": "Guardian Contact (optional)",
+  "registrationNumber": "Hospital Registration Number",
+  "hospitalType": "Hospital Type",
+  "hospitalTypes": {
+    "government": "Government",
+    "private": "Private",
+    "clinic": "Clinic"
+  },
+  "licenseNumber": "License Number",
+  "operatingHours": "Operating Hours",
+  "contactPerson": "Contact Person"
+  },
+  "authLayout": {
+  "headline": "Every second counts when someone needs blood.",
+  "tagline": "BloodBridge connects verified donors with patients, hospitals, and blood banks in real time — so the right blood reaches the right person, fast.",
+  "quote": "\u201cOne donation can help save the lives of up to three people in need.\u201d"
   }
 }

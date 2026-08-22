@@ -1,10 +1,17 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from './LanguageToggle';
-
+import { useAuth } from '../context/AuthContext';
 export function Navbar() {
   const { t } = useTranslation();
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    logout();
+    navigate('/login');
+  }
 
   return (
     <header className="navbar">
@@ -15,12 +22,33 @@ export function Navbar() {
         <NavLink to="/donations">{t('nav.donations')}</NavLink>
         <NavLink to="/requests">{t('nav.requests')}</NavLink>
         <NavLink to="/queue">{t('nav.queue')}</NavLink>
-        <NavLink to="/inventory">{t('nav.inventory')}</NavLink>
+        {['BloodBank', 'Hospital', 'Admin'].includes(user?.role) && (
+          <NavLink to="/inventory">{t('nav.inventory')}</NavLink>
+        )}
         <NavLink to="/campaigns">{t('nav.campaigns')}</NavLink>
         <NavLink to="/map">{t('nav.map')}</NavLink>
+        {user?.role === 'Admin' && (
+          <NavLink to="/admin">{t('nav.admin')}</NavLink>
+        )}
       </nav>
 
-      <LanguageToggle />
+      <div className="bb-navbar-actions">
+        <LanguageToggle />
+
+        {isAuthenticated ? (
+          <div className="bb-user-chip">
+            <span className="bb-user-role">{t(`auth.roles.${user.role}`)}</span>
+            <span className="bb-user-name">{user.name}</span>
+            <button className="bb-logout-btn" onClick={handleLogout}>
+              {t('auth.logout')}
+            </button>
+          </div>
+        ) : (
+          <NavLink to="/login" className="bb-login-link">
+            {t('auth.login')}
+          </NavLink>
+        )}
+      </div>
     </header>
   );
 }
