@@ -6,8 +6,10 @@ const {
   getWeights,
   getSinglePriority
 } = require('../controllers/queueController');
+const { protect } = require('../middleware/auth');
 
-// Static paths before parameterised ones
+router.use(protect);
+
 router.get('/critical', getCriticalQueue);
 router.get('/weights', getWeights);
 router.get('/request/:id', getSinglePriority);

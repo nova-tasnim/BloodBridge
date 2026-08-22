@@ -86,3 +86,22 @@ export const adminApi = {
   deactivateUser: (userId) =>
     api.patch(`/admin/users/${userId}/deactivate`)
 };
+export const mapApi = {
+  nearby: (params) => api.get('/map/nearby', { params }),
+  allActive: () => api.get('/map/all-active')
+};
+
+export const reportApi = {
+  overview: () => api.get('/reports/overview'),
+  history: (requesterId) => api.get(`/reports/history/${requesterId}`),
+  fulfillmentStats: (params) => api.get('/reports/fulfillment-stats', { params })
+};
+
+export const assistantApi = {
+  chat: (payload) => api.post('/assistant/chat', payload)
+};
+export const authApi = {
+  register: (payload) => api.post('/auth/register', payload),
+  login: (payload) => api.post('/auth/login', payload),
+  me: () => api.get('/auth/me')
+};

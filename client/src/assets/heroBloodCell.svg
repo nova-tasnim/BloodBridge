@@ -1,0 +1,67 @@
+<svg width="420" height="420" viewBox="0 0 420 420" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dropGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff5c72"/>
+      <stop offset="55%" stop-color="#d43a63"/>
+      <stop offset="100%" stop-color="#7d0b29"/>
+    </linearGradient>
+    <linearGradient id="cellGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff8a9a"/>
+      <stop offset="100%" stop-color="#b3123c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ambient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff5c72" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ff5c72" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#4a0018" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- ambient glow behind everything -->
+  <circle cx="210" cy="215" r="190" fill="url(#ambient)"/>
+
+  <!-- small orbiting blood cell 1 -->
+  <g transform="translate(70,80) rotate(-12)">
+    <ellipse cx="0" cy="0" rx="34" ry="26" fill="url(#cellGrad)"/>
+    <ellipse cx="0" cy="0" rx="14" ry="10" fill="#7d0b29" opacity="0.55"/>
+    <ellipse cx="-8" cy="-7" rx="9" ry="5" fill="#ffffff" opacity="0.35"/>
+  </g>
+
+  <!-- small orbiting blood cell 2 -->
+  <g transform="translate(345,150) rotate(18)">
+    <ellipse cx="0" cy="0" rx="26" ry="20" fill="url(#cellGrad)"/>
+    <ellipse cx="0" cy="0" rx="11" ry="8" fill="#7d0b29" opacity="0.55"/>
+    <ellipse cx="-6" cy="-5" rx="7" ry="4" fill="#ffffff" opacity="0.35"/>
+  </g>
+
+  <!-- small orbiting blood cell 3 -->
+  <g transform="translate(330,320) rotate(-6)">
+    <ellipse cx="0" cy="0" rx="20" ry="15" fill="url(#cellGrad)"/>
+    <ellipse cx="0" cy="0" rx="8" ry="6" fill="#7d0b29" opacity="0.55"/>
+    <ellipse cx="-4" cy="-4" rx="5" ry="3" fill="#ffffff" opacity="0.35"/>
+  </g>
+
+  <!-- main blood drop -->
+  <g filter="url(#softShadow)">
+    <path
+      d="M210 55
+         C 210 55 300 175 300 245
+         C 300 300 260 340 210 340
+         C 160 340 120 300 120 245
+         C 120 175 210 55 210 55 Z"
+      fill="url(#dropGrad)"
+    />
+    <!-- glossy highlight -->
+    <ellipse cx="178" cy="210" rx="34" ry="52" fill="url(#glow)"/>
+  </g>
+
+  <!-- tiny orbiting blood cell inside/near drop for depth -->
+  <g transform="translate(255,260) rotate(10)">
+    <ellipse cx="0" cy="0" rx="16" ry="12" fill="#ffffff" opacity="0.18"/>
+  </g>
+</svg>

@@ -5,8 +5,10 @@ const {
   getCompatibilityMatrix,
   checkCompatibility
 } = require('../controllers/matchingController');
+const { protect } = require('../middleware/auth');
 
-// Static routes before the parameterised one
+router.use(protect);
+
 router.get('/check', checkCompatibility);
 router.get('/', getCompatibilityMatrix);
 router.get('/:bloodGroup', getCompatibility);

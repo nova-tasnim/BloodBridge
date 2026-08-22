@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import heroImage from '../assets/hero.png';
-
+import heroImage from '../assets/heroBloodCell.svg';
 export default function Hero({ onPrimaryAction, onSecondaryAction }) {
   const { t } = useTranslation();
 

@@ -10,17 +10,22 @@ const {
   getRegistrations,
   updateAttendance
 } = require('../controllers/campaignController');
+const { protect, authorize } = require('../middleware/auth');
 
-// Static path before parameterised ones
-router.patch('/registrations/:registrationId', updateAttendance);
+router.use(protect);
 
-router.route('/').post(createBloodDrive).get(getCampaigns);
-router.post('/:id/register', registerForCampaign);
-router.get('/:id/registrations', getRegistrations);
-router
-  .route('/:id')
+router.patch('/registrations/:registrationId', authorize('Hospital', 'BloodBank', 'Admin'), updateAttendance);
+
+router.route('/')
+  .post(authorize('Hospital', 'BloodBank', 'Admin'), createBloodDrive)
+  .get(getCampaigns);
+
+router.post('/:id/register', authorize('Donor'), registerForCampaign);
+router.get('/:id/registrations', authorize('Hospital', 'BloodBank', 'Admin'), getRegistrations);
+
+router.route('/:id')
   .get(getCampaignById)
-  .put(updateCampaign)
-  .delete(deleteCampaign);
+  .put(authorize('Hospital', 'BloodBank', 'Admin'), updateCampaign)
+  .delete(authorize('Hospital', 'BloodBank', 'Admin'), deleteCampaign);
 
 module.exports = router;

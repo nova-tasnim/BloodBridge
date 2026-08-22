@@ -36,12 +36,14 @@ const reminderRoutes = require('./routes/reminderRoutes');
 const badgeRoutes = require('./routes/badgeRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const authRoutes = require('./routes/authRoutes');
 connectDB();
 
 app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => res.send('BloodBridge API is running'));
+app.use('/api/auth', authRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/blood-drives', bloodDriveRoutes);
