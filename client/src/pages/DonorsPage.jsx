@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { donorApi } from '../api/resources';
+import { useAuth } from '../context/AuthContext';
 import Hero from '../components/Hero';
 import {
   InspirationBanner,
@@ -20,6 +21,7 @@ import {
 export default function DonorsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const directoryRef = useRef(null);
 
   const [donors, setDonors] = useState([]);
@@ -119,6 +121,9 @@ export default function DonorsPage() {
       ...f,
       [key]: e.target.value
     }));
+
+  const canManageAvailability = (donorId) =>
+    user?.role === 'Admin' || (user?.role === 'Donor' && user?._id === donorId);
 
   return (
     <div className="page">
@@ -411,18 +416,26 @@ export default function DonorsPage() {
                   </td>
 
                   <td>
-                    <button
-                      className={
-                        donor.isAvailable
-                          ? 'small'
-                          : 'small secondary'
-                      }
-                      onClick={() => handleToggle(donor)}
-                    >
-                      {donor.isAvailable
-                        ? t('donors.available')
-                        : t('donors.unavailable')}
-                    </button>
+                    {canManageAvailability(donor._id) ? (
+                      <button
+                        className={
+                          donor.isAvailable
+                            ? 'small'
+                            : 'small secondary'
+                        }
+                        onClick={() => handleToggle(donor)}
+                      >
+                        {donor.isAvailable
+                          ? t('donors.available')
+                          : t('donors.unavailable')}
+                      </button>
+                    ) : (
+                      <Badge type={donor.isAvailable ? 'ok' : 'neutral'}>
+                        {donor.isAvailable
+                          ? t('donors.available')
+                          : t('donors.unavailable')}
+                      </Badge>
+                    )}
                   </td>
 
                   <td>

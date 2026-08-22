@@ -8,14 +8,23 @@ const {
 
 // POST /api/inventory — add stock
 exports.addInventory = async (req, res) => {
-  const item = await addStock(req.body || {});
+  const payload = { ...(req.body || {}) };
+  if (req.user?.role === 'BloodBank') {
+    payload.bloodBank = req.user._id;
+  }
+
+  const item = await addStock(payload);
   res.status(201).json({ success: true, data: item });
 };
 
 // GET /api/inventory — list, optionally filtered
 exports.getInventory = async (req, res) => {
   const filter = { isActive: true };
-  if (req.query.bloodBank) filter.bloodBank = req.query.bloodBank;
+  if (req.user?.role === 'BloodBank') {
+    filter.bloodBank = req.user._id;
+  } else if (req.query.bloodBank) {
+    filter.bloodBank = req.query.bloodBank;
+  }
   if (req.query.bloodGroup) filter.bloodGroup = req.query.bloodGroup;
 
   const items = await Inventory.find(filter)
@@ -34,6 +43,11 @@ exports.getInventoryById = async (req, res) => {
   if (!item) {
     return res.status(404).json({ success: false, message: 'Inventory item not found' });
   }
+
+  if (req.user?.role === 'BloodBank' && item.bloodBank?._id.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ success: false, message: 'Forbidden — not your inventory item' });
+  }
+
   res.json({ success: true, data: item });
 };
 
@@ -41,6 +55,17 @@ exports.getInventoryById = async (req, res) => {
 exports.updateInventory = async (req, res) => {
   const body = req.body || {};
   delete body.bloodBank;
+
+  if (req.user?.role === 'BloodBank') {
+    const existing = await Inventory.findById(req.params.id).select('bloodBank');
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Inventory item not found' });
+    }
+
+    if (existing.bloodBank.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Forbidden — not your inventory item' });
+    }
+  }
 
   const item = await Inventory.findByIdAndUpdate(req.params.id, body, {
     new: true,
@@ -55,6 +80,18 @@ exports.updateInventory = async (req, res) => {
 // PATCH /api/inventory/:id/consume — issue units
 exports.consumeInventory = async (req, res) => {
   const body = req.body || {};
+
+  if (req.user?.role === 'BloodBank') {
+    const existing = await Inventory.findById(req.params.id).select('bloodBank');
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Inventory item not found' });
+    }
+
+    if (existing.bloodBank.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Forbidden — not your inventory item' });
+    }
+  }
+
   const item = await consumeStock(req.params.id, body.units);
 
   res.json({
@@ -71,6 +108,17 @@ exports.consumeInventory = async (req, res) => {
 
 // DELETE /api/inventory/:id — soft delete
 exports.deleteInventory = async (req, res) => {
+  if (req.user?.role === 'BloodBank') {
+    const existing = await Inventory.findById(req.params.id).select('bloodBank');
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Inventory item not found' });
+    }
+
+    if (existing.bloodBank.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Forbidden — not your inventory item' });
+    }
+  }
+
   const item = await Inventory.findByIdAndUpdate(
     req.params.id,
     { isActive: false },

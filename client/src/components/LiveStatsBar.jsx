@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import api from '../api/client';
+import { reportApi } from '../api/resources';
 import AnimatedCounter from './AnimatedCounter';
 
 const FACT_KEYS = ['fact1', 'fact2', 'fact3', 'fact4'];
@@ -15,12 +15,11 @@ export default function LiveStatsBar() {
 
     async function load() {
       try {
-        const res = await api.get('/admin/overview');
-        // adminController returns a flat object (no {success,data} envelope)
+        const res = await reportApi.overview();
         const payload = res?.data ?? res;
         if (!cancelled) setStats(payload);
       } catch {
-        // Silent fail — stats bar just won't render numbers if backend/admin route is unreachable
+        // Silent fail — stats bar just won't render numbers if backend is unreachable
       }
     }
 

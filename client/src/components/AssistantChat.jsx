@@ -2,11 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { assistantApi } from '../api/resources';
 import { BLOOD_GROUPS } from './Shared';
+import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'bb_chat_blood_group';
 
 export default function AssistantChat() {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -41,7 +43,8 @@ export default function AssistantChat() {
 
     try {
       const language = i18n.language === 'bn' ? 'Bangla' : 'English';
-      const res = await assistantApi.chat({ message: text, language, bloodGroup });
+      const effectiveBloodGroup = user?.bloodGroup || bloodGroup;
+      const res = await assistantApi.chat({ message: text, language, bloodGroup: effectiveBloodGroup });
       const payload = res?.data || res;
       const reply = payload?.response || t('assistant.errorReply');
 
@@ -49,7 +52,7 @@ export default function AssistantChat() {
       if (payload?.suggestedQuestions?.length) {
         setSuggestions(payload.suggestedQuestions);
       }
-    } catch (err) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', text: t('assistant.errorReply') }
@@ -93,15 +96,24 @@ export default function AssistantChat() {
                 <div className="bb-chat-bloodgroup-prompt">
                   <span>{t('assistant.selectBloodGroup')}</span>
                   <div className="bb-chat-chip-row">
-                    {BLOOD_GROUPS.map((g) => (
+                    {user?.bloodGroup ? (
                       <button
-                        key={g}
-                        className={`bb-chat-chip bb-chat-chip-blood ${bloodGroup === g ? 'active' : ''}`}
-                        onClick={() => selectBloodGroup(g)}
+                        className="bb-chat-chip bb-chat-chip-blood active"
+                        type="button"
                       >
-                        {g}
+                        {user.bloodGroup}
                       </button>
-                    ))}
+                    ) : (
+                      BLOOD_GROUPS.map((g) => (
+                        <button
+                          key={g}
+                          className={`bb-chat-chip bb-chat-chip-blood ${bloodGroup === g ? 'active' : ''}`}
+                          onClick={() => selectBloodGroup(g)}
+                        >
+                          {g}
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
               </>

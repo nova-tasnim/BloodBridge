@@ -26,16 +26,24 @@ exports.changeStatus = async (req, res) => {
 // POST /api/requests/:id/respond
 exports.respond = async (req, res) => {
   const body = req.body || {};
-  if (!body.donorId || !body.decision) {
+  if (!body.decision) {
     return res.status(400).json({
       success: false,
-      message: 'donorId and decision ("accepted" or "declined") are required'
+      message: 'decision ("accepted" or "declined") is required'
+    });
+  }
+
+  const donorId = req.user?._id || body.donorId;
+  if (!donorId) {
+    return res.status(400).json({
+      success: false,
+      message: 'donorId is required'
     });
   }
 
   const result = await respondToRequest(
     req.params.id,
-    body.donorId,
+    donorId,
     body.decision,
     body
   );

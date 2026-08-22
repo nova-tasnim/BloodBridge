@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { useAuth } from '../context/AuthContext';
+import { mapApi, requestApi } from '../api/resources';
 import '../utils/leafletIconFix';
 
 const URGENCY_COLORS = {
@@ -11,10 +14,15 @@ const URGENCY_COLORS = {
 
 function RequestMap() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [requests, setRequests] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoadingId, setActionLoadingId] = useState('');
+
+  const canRespond = user?.role === 'Donor';
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -37,17 +45,12 @@ function RequestMap() {
 
   async function fetchNearbyRequests(lat, lng) {
     try {
-      const response = await fetch(
-        `/api/map/nearby?latitude=${lat}&longitude=${lng}&radiusKm=25`
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch nearby requests');
-      }
-
-      const result = await response.json();
-
-      setRequests(result.data || []);
+      const result = await mapApi.nearby({
+        latitude: lat,
+        longitude: lng,
+        radiusKm: 25
+      });
+      setRequests(result?.data || []);
     } catch (err) {
       console.error(t('map.failedToLoad'), err);
       await fetchAllRequests();
@@ -58,15 +61,8 @@ function RequestMap() {
 
   async function fetchAllRequests() {
     try {
-      const response = await fetch('/api/map/all-active');
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch active requests');
-      }
-
-      const result = await response.json();
-
-      setRequests(result.data || []);
+      const result = await mapApi.allActive();
+      setRequests(result?.data || []);
       setUserLocation([23.8103, 90.4125]);
     } catch (err) {
       console.error(t('map.failedToLoad'), err);
@@ -74,6 +70,30 @@ function RequestMap() {
       setUserLocation([23.8103, 90.4125]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleAction(request) {
+    if (!request?._id) return;
+
+    if (!canRespond) {
+      navigate('/requests');
+      return;
+    }
+
+    setActionLoadingId(request._id);
+
+    try {
+      await requestApi.respond(
+        request._id,
+        user?._id,
+        'accepted',
+        'Accepted via map'
+      );
+    } catch (err) {
+      console.error(t('map.failedToLoad'), err);
+    } finally {
+      setActionLoadingId('');
     }
   }
 
@@ -158,8 +178,10 @@ function RequestMap() {
                   className="btn-primary"
                   style={{ marginTop: '8px' }}
                   type="button"
+                  onClick={() => handleAction(request)}
+                  disabled={actionLoadingId === request._id}
                 >
-                  {t('map.respond')}
+                  {canRespond ? t('map.respond') : 'View details'}
                 </button>
               </Popup>
             </Marker>

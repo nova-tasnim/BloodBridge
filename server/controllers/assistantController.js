@@ -10,7 +10,7 @@ exports.chatWithAssistant = async (req, res) => {
 
   // Bind donorId authoritatively from req.user if the authenticated user is a Donor
   const donorId = req.user?.role === 'Donor' ? req.user._id : null;
-  const targetBloodGroup = bloodGroup || req.user?.bloodGroup;
+  const targetBloodGroup = req.user?.bloodGroup || bloodGroup;
 
   const result = await getAssistantReply({
     message,
