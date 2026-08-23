@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { inventoryApi } from '../api/resources';
+import { useAuth } from '../context/AuthContext';
 import {
   PageHeader, Card, Field, Badge, BloodBadge, Alert, Empty,
   BLOOD_GROUPS, formatDate
@@ -8,6 +9,7 @@ import {
 
 export default function InventoryPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   const [bankId, setBankId] = useState('');
   const [summary, setSummary] = useState(null);
@@ -28,14 +30,17 @@ export default function InventoryPage() {
   const set = (key) => (e) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const loadAll = async (id) => {
+  const loadAll = async (id = '') => {
     setError('');
 
     try {
+      const targetId = id || (user?.role === 'BloodBank' ? 'me' : '');
+      const listParams = targetId && targetId !== 'me' ? { bloodBank: targetId } : {};
+
       const [s, a, list] = await Promise.all([
-        inventoryApi.summary(id),
-        inventoryApi.alerts(id),
-        inventoryApi.list({ bloodBank: id })
+        inventoryApi.summary(targetId),
+        inventoryApi.alerts(targetId),
+        inventoryApi.list(listParams)
       ]);
 
       setSummary(s.data);
@@ -46,6 +51,12 @@ export default function InventoryPage() {
     }
   };
 
+  useEffect(() => {
+    if (user?.role === 'BloodBank') {
+      loadAll('me');
+    }
+  }, [user]);
+
   const handleLoad = (e) => {
     e.preventDefault();
 
@@ -54,19 +65,21 @@ export default function InventoryPage() {
     }
   };
 
-  const handleAdd = async (e) => {
+const handleAdd = async (e) => {
     e.preventDefault();
     setError('');
     setNotice('');
 
     try {
-      await inventoryApi.add({
+      const payload = {
         ...form,
-        bloodBank: bankId
-      });
+        ...(bankId ? { bloodBank: bankId } : {})
+      };
 
-      setNotice(t('inventory.stockAdded'));
-      loadAll(bankId);
+      await inventoryApi.add(payload);
+
+      setNotice(t('inventory.stockAdded', { defaultValue: 'Stock added successfully' }));
+      loadAll(bankId || 'me');
     } catch (err) {
       setError(err.message);
     }
@@ -86,7 +99,7 @@ export default function InventoryPage() {
       );
 
       setNotice(res.message);
-      loadAll(bankId);
+      loadAll(bankId || 'me');
     } catch (err) {
       setError(err.message);
     }
@@ -110,22 +123,41 @@ export default function InventoryPage() {
         onDismiss={() => setNotice('')}
       />
 
-      <Card title={t('inventory.selectBloodBank')}>
-        <form onSubmit={handleLoad} className="form-row">
-          <Field label={t('inventory.bloodBankId')}>
-            <input
-              value={bankId}
-              onChange={(e) => setBankId(e.target.value)}
-              required
-            />
-          </Field>
-
-          <div style={{ alignSelf: 'flex-end', paddingBottom: 12 }}>
-            <button type="submit">
-              {t('inventory.load')}
+      <Card title={user?.role === 'BloodBank' ? t('inventory.myFacility', { defaultValue: 'Facility Inventory' }) : t('inventory.selectBloodBank')}>
+        {user?.role === 'BloodBank' ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p className="muted" style={{ margin: 0 }}>
+                {t('inventory.facilitySession', { defaultValue: 'Managing real-time stock for:' })}{' '}
+                <b>{user?.name}</b>
+              </p>
+            </div>
+            <button
+              type="button"
+              className="secondary small"
+              onClick={() => loadAll('me')}
+            >
+              {t('inventory.refresh', { defaultValue: 'Refresh Stock' })}
             </button>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleLoad} className="form-row">
+            <Field label={t('inventory.bloodBankId')}>
+              <input
+                value={bankId}
+                onChange={(e) => setBankId(e.target.value)}
+                placeholder="Enter Blood Bank ID"
+                required
+              />
+            </Field>
+
+            <div style={{ alignSelf: 'flex-end', paddingBottom: 12 }}>
+              <button type="submit">
+                {t('inventory.load')}
+              </button>
+            </div>
+          </form>
+        )}
       </Card>
 
       {alerts && (
@@ -273,7 +305,7 @@ export default function InventoryPage() {
         </Card>
       )}
 
-      {bankId && (
+      {(bankId || user?.role === 'BloodBank') && (
         <div className="grid grid-2">
 
           <Card title={t('inventory.addStock')}>

@@ -9,14 +9,19 @@ const {
 // POST /api/inventory — add stock
 exports.addInventory = async (req, res) => {
   const payload = { ...(req.body || {}) };
+
+  // Authenticated identity resolution
   if (req.user?.role === 'BloodBank') {
-    payload.bloodBank = req.user._id;
+    payload.bloodBank = req.user._id; // Enforce logged-in blood bank identity
+  } else if (req.user?.role === 'Admin' && payload.bloodBank) {
+    // Admin explicit target workflow
+  } else if (!payload.bloodBank) {
+    return res.status(400).json({ success: false, message: 'bloodBank is required' });
   }
 
   const item = await addStock(payload);
   res.status(201).json({ success: true, data: item });
 };
-
 // GET /api/inventory — list, optionally filtered
 exports.getInventory = async (req, res) => {
   const filter = { isActive: true };
@@ -130,15 +135,37 @@ exports.deleteInventory = async (req, res) => {
   res.json({ success: true, message: 'Inventory item removed' });
 };
 
-// GET /api/inventory/bank/:bloodBankId/summary
+// GET /api/inventory/bank/:bloodBankId/summary or /api/inventory/summary/me
 exports.getSummary = async (req, res) => {
-  const summary = await getStockSummary(req.params.bloodBankId);
+  let bankId = req.params.bloodBankId;
+
+  // If blood bank is logged in or 'me' is requested, resolve automatically from req.user._id
+  if (req.user?.role === 'BloodBank' || bankId === 'me') {
+    bankId = req.user._id;
+  }
+
+  if (!bankId) {
+    return res.status(400).json({ success: false, message: 'bloodBankId is required' });
+  }
+
+  const summary = await getStockSummary(bankId);
   res.json({ success: true, data: summary });
 };
 
-// GET /api/inventory/bank/:bloodBankId/alerts — the low-stock feature
+// GET /api/inventory/bank/:bloodBankId/alerts or /api/inventory/alerts/me
 exports.getInventoryAlerts = async (req, res) => {
+  let bankId = req.params.bloodBankId;
+
+  // If blood bank is logged in or 'me' is requested, resolve automatically from req.user._id
+  if (req.user?.role === 'BloodBank' || bankId === 'me') {
+    bankId = req.user._id;
+  }
+
+  if (!bankId) {
+    return res.status(400).json({ success: false, message: 'bloodBankId is required' });
+  }
+
   const warningDays = parseInt(req.query.warningDays, 10) || 7;
-  const alerts = await getAlerts(req.params.bloodBankId, warningDays);
+  const alerts = await getAlerts(bankId, warningDays);
   res.json({ success: true, data: alerts });
 };
