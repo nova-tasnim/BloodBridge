@@ -4,6 +4,8 @@ export const donorApi = {
   list: (params) => api.get('/donors', { params }),
   getById: (id) => api.get(`/donors/${id}`),
   create: (payload) => api.post('/donors', payload),
+  // Phase 2B: Upgrade authenticated user/patient to have a donor profile
+  becomeDonor: (payload) => api.post('/donors/become-donor', payload),
   update: (id, payload) => api.put(`/donors/${id}`, payload),
   remove: (id) => api.delete(`/donors/${id}`),
   eligibility: (id) => api.get(`/donors/${id}/eligibility`),
@@ -11,14 +13,20 @@ export const donorApi = {
     api.patch(`/donors/${id}/availability`, { isAvailable })
 };
 
-export const donationApi = {
-  create: (payload) => api.post('/donations', payload),
-  historyFor: (donorId) => api.get(`/donations/donor/${donorId}`)
+export const donationsApi = {
+  create: (data) => api.post('/donations', data),
+  // Authenticated donor's own history
+  getMyHistory: () => api.get('/donations/me'),
+  // Authorized lookup by donor ID (admin / blood bank)
+  getDonorHistory: (donorId) => api.get(`/donations/donor/${donorId}`),
+  getById: (id) => api.get(`/donations/${id}`)
 };
 
 export const requestApi = {
   list: (params) => api.get('/requests', { params }),
   getById: (id) => api.get(`/requests/${id}`),
+  // Authenticated user's created requests
+  myRequests: (params) => api.get('/requests/my', { params }),
   create: (payload) => api.post('/requests', payload),
   remove: (id) => api.delete(`/requests/${id}`),
   matches: (id, params) => api.get(`/requests/${id}/matches`, { params }),
@@ -28,10 +36,36 @@ export const requestApi = {
   timeline: (id) => api.get(`/requests/${id}/timeline`),
   transitions: () => api.get('/requests/lifecycle/transitions'),
   changeStatus: (id, status) => api.patch(`/requests/${id}/status`, { status }),
-  respond: (id, donorId, decision, reason) =>
-    api.post(`/requests/${id}/respond`, { donorId, decision, reason }),
-  fulfil: (id, donorId, unitsDonated, notes) =>
-    api.post(`/requests/${id}/fulfil`, { donorId, unitsDonated, notes })
+  // Phase 2B: accepts payload object with location sharing support or positional arguments
+  respond: (id, decisionOrPayload, reason, donorId) => {
+    if (typeof decisionOrPayload === 'object' && decisionOrPayload !== null) {
+      return api.post(`/requests/${id}/respond`, decisionOrPayload);
+    }
+    if (decisionOrPayload === 'accepted' || decisionOrPayload === 'declined') {
+      return api.post(`/requests/${id}/respond`, {
+        decision: decisionOrPayload,
+        reason,
+        ...(donorId ? { donorId } : {})
+      });
+    }
+    // Backward compatibility if legacy signature (id, donorId, decision, reason) is called
+    return api.post(`/requests/${id}/respond`, {
+      donorId: decisionOrPayload,
+      decision: reason,
+      ...(donorId ? { reason: donorId } : {})
+    });
+  },
+  // Phase 2B: flexible fulfillment signature accepting payload object or positional parameters
+  fulfil: (id, donorIdOrPayload, unitsDonated = 1, notes = '') => {
+    if (typeof donorIdOrPayload === 'object' && donorIdOrPayload !== null) {
+      return api.post(`/requests/${id}/fulfil`, donorIdOrPayload);
+    }
+    return api.post(`/requests/${id}/fulfil`, {
+      donorId: donorIdOrPayload,
+      unitsDonated,
+      notes
+    });
+  }
 };
 
 export const inventoryApi = {
@@ -39,9 +73,15 @@ export const inventoryApi = {
   add: (payload) => api.post('/inventory', payload),
   consume: (id, units) => api.patch(`/inventory/${id}/consume`, { units }),
   remove: (id) => api.delete(`/inventory/${id}`),
-  summary: (bankId) => api.get(`/inventory/bank/${bankId}/summary`),
-  alerts: (bankId, warningDays) =>
-    api.get(`/inventory/bank/${bankId}/alerts`, { params: { warningDays } })
+  // Auto-scopes to /me when bankId is not provided or 'me'
+  summary: (bankId) =>
+    api.get(bankId && bankId !== 'me' ? `/inventory/bank/${bankId}/summary` : '/inventory/summary/me'),
+  alerts: (bankId, warningDays) => {
+    const isCustomBank = bankId && bankId !== 'me';
+    const url = isCustomBank ? `/inventory/bank/${bankId}/alerts` : '/inventory/alerts/me';
+    const params = typeof warningDays === 'object' ? warningDays : { warningDays };
+    return api.get(url, { params });
+  }
 };
 
 export const campaignApi = {
@@ -49,7 +89,11 @@ export const campaignApi = {
   getById: (id) => api.get(`/campaigns/${id}`),
   create: (payload) => api.post('/campaigns', payload),
   remove: (id) => api.delete(`/campaigns/${id}`),
-  register: (id, donorId) => api.post(`/campaigns/${id}/register`, { donorId }),
+  // Phase 2A: 1-click registration without requiring donorId
+  register: (id, payloadOrDonorId = {}) => {
+    const payload = typeof payloadOrDonorId === 'string' ? { donorId: payloadOrDonorId } : payloadOrDonorId;
+    return api.post(`/campaigns/${id}/register`, payload);
+  },
   registrations: (id) => api.get(`/campaigns/${id}/registrations`)
 };
 
@@ -59,33 +103,24 @@ export const compatibilityApi = {
   check: (donor, recipient) =>
     api.get('/compatibility/check', { params: { donor, recipient } })
 };
+
 export const queueApi = {
   get: (params) => api.get('/queue', { params }),
   critical: () => api.get('/queue/critical'),
   weights: () => api.get('/queue/weights'),
   forRequest: (id) => api.get(`/queue/request/${id}`)
 };
+
 export const adminApi = {
   overview: () => api.get('/admin/overview'),
-
-  shortageTrends: () =>
-    api.get('/admin/shortage-trends'),
-
-  donorRetention: () =>
-    api.get('/admin/donor-retention'),
-
-  pendingVerifications: () =>
-    api.get('/admin/pending-verifications'),
-
-  users: (params) =>
-    api.get('/admin/users', { params }),
-
-  verifyInstitution: (userId) =>
-    api.patch(`/admin/verify/${userId}`),
-
-  deactivateUser: (userId) =>
-    api.patch(`/admin/users/${userId}/deactivate`)
+  shortageTrends: () => api.get('/admin/shortage-trends'),
+  donorRetention: () => api.get('/admin/donor-retention'),
+  pendingVerifications: () => api.get('/admin/pending-verifications'),
+  users: (params) => api.get('/admin/users', { params }),
+  verifyInstitution: (userId) => api.patch(`/admin/verify/${userId}`),
+  deactivateUser: (userId) => api.patch(`/admin/users/${userId}/deactivate`)
 };
+
 export const mapApi = {
   nearby: (params) => api.get('/map/nearby', { params }),
   allActive: () => api.get('/map/all-active')
@@ -104,4 +139,33 @@ export const authApi = {
   register: (payload) => api.post('/auth/register', payload),
   login: (payload) => api.post('/auth/login', payload),
   me: () => api.get('/auth/me')
+};
+
+export const notificationApi = {
+  myNotifications: () => api.get('/notifications/me'),
+  markRead: (notificationId) =>
+    api.patch(`/notifications/${notificationId}/read`),
+  markAllRead: () => api.patch('/notifications/read-all')
+};
+
+export const feedbackApi = {
+  // Submit feedback
+  create: (payload) =>
+    api.post('/feedback', payload),
+
+  // Get all feedback for a request
+  forRequest: (requestId) =>
+    api.get(`/feedback/target/${requestId}`),
+
+  // Get all feedback for a donation
+  forDonation: (donationId) =>
+    api.get(`/feedback/target/${donationId}`),
+
+  // Get average feedback for any target
+  average: (targetId) =>
+    api.get(`/feedback/target/${targetId}/average`),
+
+  // Recent platform feedback
+  recent: (params) =>
+    api.get('/feedback/recent', { params })
 };

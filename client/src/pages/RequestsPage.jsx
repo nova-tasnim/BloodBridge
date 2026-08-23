@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { requestApi } from '../api/resources';
+
+import {
+  requestApi,
+  feedbackApi
+} from '../api/resources';
+
+import { useAuth } from '../context/AuthContext';
+
+import FeedbackPanel from '../components/FeedbackPanel';
+
 import {
   PageHeader,
   Card,
@@ -13,6 +22,12 @@ import {
   BLOOD_GROUPS,
   formatDate
 } from '../components/Shared';
+
+/*
+|--------------------------------------------------------------------------
+| Badge mappings
+|--------------------------------------------------------------------------
+*/
 
 const URGENCY_BADGE = {
   critical: 'bad',
@@ -38,240 +53,560 @@ const RESPONSE_BADGE = {
 
 export default function RequestsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
 
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [matchResult, setMatchResult] = useState(null);
-  const [matchRadius, setMatchRadius] = useState(15);
-  const [showExcluded, setShowExcluded] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('');
+  /*
+  |--------------------------------------------------------------------------
+  | Capability matrix
+  |--------------------------------------------------------------------------
+  */
 
-  const [timeline, setTimeline] = useState(null);
-  const [respondForm, setRespondForm] = useState({
-    donorId: '',
-    reason: ''
-  });
+  const isNativeDonor =
+    user?.role === 'Donor';
 
-  const [fulfilForm, setFulfilForm] = useState({
-    donorId: '',
-    unitsDonated: 1,
-    notes: ''
-  });
+  const isPatientDonor =
+    user?.role === 'Patient' &&
+    Boolean(user?.donorProfile);
 
-  const [form, setForm] = useState({
-    requester: '',
-    patientName: '',
-    bloodGroup: 'A+',
-    unitsNeeded: 1,
-    urgency: 'routine',
-    hospitalName: '',
-    lat: '23.7808',
-    lng: '90.4203',
-    address: '',
-    contactPhone: '',
-    notes: '',
-    isSOS: false
-  });
+  /*
+   * Respond to matched blood request:
+   *
+   * Native Donor         ✅
+   * Patient donor        ✅
+   * Plain Patient        ❌
+   * Hospital             ❌
+   * BloodBank            ❌
+   * Admin                ❌
+   */
+  const canRespondAsDonor =
+    isNativeDonor ||
+    isPatientDonor;
 
-  const loadRequests = async (status = '') => {
-    setLoading(true);
-    setError('');
+  /*
+   * Create blood request:
+   *
+   * Donor                ✅
+   * Patient              ✅
+   * Patient donor        ✅
+   * Hospital             ✅
+   * BloodBank            ❌
+   * Admin                ✅
+   */
+  const canCreateRequest =
+    [
+      'Donor',
+      'Patient',
+      'Hospital',
+      'Admin'
+    ].includes(user?.role);
 
-    try {
-      const res = await requestApi.list(status ? { status } : {});
-      setRequests(res.data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  /*
+   * Persist/run matching:
+   *
+   * Hospital             ✅
+   * BloodBank            ✅
+   * Admin                ✅
+   */
+  const canRunMatching =
+    [
+      'Hospital',
+      'BloodBank',
+      'Admin'
+    ].includes(user?.role);
 
-  useEffect(() => {
-    loadRequests();
-  }, []);
+  /*
+   * Confirm verified fulfillment:
+   *
+   * Hospital             ✅
+   * BloodBank            ✅
+   * Admin                ✅
+   */
+  const canConfirmFulfillment =
+    [
+      'Hospital',
+      'BloodBank',
+      'Admin'
+    ].includes(user?.role);
 
-  const set = (key) => (e) => {
-    setForm((f) => ({
-      ...f,
-      [key]: e.target.value
-    }));
-  };
+  const isRequestStaff =
+    [
+      'Hospital',
+      'BloodBank',
+      'Admin'
+    ].includes(user?.role);
 
-  const toggleSOS = () => {
-    setForm((f) => ({
-      ...f,
-      isSOS: !f.isSOS,
-      urgency: !f.isSOS ? 'critical' : f.urgency
-    }));
-  };
-  const refreshTimeline = async (id) => {
-    try {
-      const res = await requestApi.timeline(id);
-      setTimeline(res.data);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+  /*
+  |--------------------------------------------------------------------------
+  | State
+  |--------------------------------------------------------------------------
+  */
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    setError('');
-    setNotice('');
+  const [requests, setRequests] =
+    useState([]);
 
-    try {
-      await requestApi.create({
-        requester: form.requester,
-        patientName: form.patientName,
-        bloodGroup: form.bloodGroup,
-        unitsNeeded: Number(form.unitsNeeded),
-        urgency: form.urgency,
-        hospitalName: form.hospitalName,
-        location: {
-          coordinates: [Number(form.lng), Number(form.lat)],
-          address: form.address
-        },
-        contactPhone: form.contactPhone,
-        notes: form.notes,
-        isSOS: form.isSOS
-      });
+  const [loading, setLoading] =
+    useState(true);
 
-      setNotice(t('requests.createdSuccess'));
+  const [error, setError] =
+    useState('');
 
-      setForm((f) => ({
-        ...f,
-        patientName: '',
-        notes: '',
-        contactPhone: '',
-        isSOS: false
-      }));
+  const [notice, setNotice] =
+    useState('');
 
-      loadRequests(filterStatus);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+  const [matchResult, setMatchResult] =
+    useState(null);
 
-  const handleFindMatches = async (requestId) => {
-    setError('');
-    setMatchResult(null);
+  const [matchRadius, setMatchRadius] =
+    useState(15);
 
-    try {
-      const res = await requestApi.matches(requestId, {
-        radius: matchRadius,
-        includeIneligible: 'true'
-      });
+  const [showExcluded, setShowExcluded] =
+    useState(false);
 
-      setMatchResult(res.data);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+  const [filterStatus, setFilterStatus] =
+    useState('');
 
-  const handleRunMatching = async (requestId) => {
-    setError('');
+  const [timeline, setTimeline] =
+    useState(null);
 
-    try {
-      const res = await requestApi.runMatching(requestId, {
-        radius: matchRadius
-      });
+  const [
+    requesterFeedback,
+    setRequesterFeedback
+  ] = useState(null);
 
-      setNotice(res.message);
-      setMatchResult(res.data);
+  /*
+  |--------------------------------------------------------------------------
+  | Donor response form
+  |--------------------------------------------------------------------------
+  |
+  | donorId remains here only to avoid unnecessary state restructuring.
+  |
+  | It is NOT sent to backend anymore.
+  |--------------------------------------------------------------------------
+  */
 
-      loadRequests(filterStatus);
-
-      if (timeline?.requestId === requestId) {
-        refreshTimeline(requestId);
-      }
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleManage = async (requestId) => {
-    setError('');
-
-    setRespondForm({
+  const [respondForm, setRespondForm] =
+    useState({
       donorId: '',
-      reason: ''
+      reason: '',
+      shareLocation: true
     });
 
-    setFulfilForm({
+  /*
+  |--------------------------------------------------------------------------
+  | Fulfillment form
+  |--------------------------------------------------------------------------
+  */
+
+  const [fulfilForm, setFulfilForm] =
+    useState({
       donorId: '',
       unitsDonated: 1,
       notes: ''
     });
 
-    await refreshTimeline(requestId);
+  /*
+  |--------------------------------------------------------------------------
+  | Request creation form
+  |--------------------------------------------------------------------------
+  */
+
+  const [form, setForm] =
+    useState({
+      requester: '',
+      patientName: '',
+      bloodGroup: 'A+',
+      unitsNeeded: 1,
+      urgency: 'routine',
+      hospitalName: '',
+      lat: '23.7808',
+      lng: '90.4203',
+      address: '',
+      contactPhone: '',
+      notes: '',
+      isSOS: false
+    });
+
+  /*
+  |--------------------------------------------------------------------------
+  | Error helper
+  |--------------------------------------------------------------------------
+  */
+
+  const extractError = (
+    err,
+    fallback = 'Something went wrong'
+  ) => {
+    return (
+      err?.response?.data?.message ||
+      err?.message ||
+      fallback
+    );
   };
 
-  const handleTransition = async (status) => {
-    setError('');
-    setNotice('');
+  /*
+  |--------------------------------------------------------------------------
+  | Load requests
+  |--------------------------------------------------------------------------
+  */
 
-    try {
-      const res = await requestApi.changeStatus(
-        timeline.requestId,
-        status
-      );
+  const loadRequests =
+    async (status = '') => {
+      setLoading(true);
+      setError('');
 
-      setNotice(res.message);
+      try {
+        const res =
+          await requestApi.list(
+            status
+              ? { status }
+              : {}
+          );
 
-      await refreshTimeline(timeline.requestId);
-      loadRequests(filterStatus);
-    } catch (err) {
-      setError(err.message);
-    }
+        const list =
+          Array.isArray(res?.data)
+            ? res.data
+            : Array.isArray(res)
+              ? res
+              : [];
+
+        setRequests(list);
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Failed to load blood requests'
+          )
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Form helper
+  |--------------------------------------------------------------------------
+  */
+
+  const set =
+    (key) =>
+    (e) => {
+      setForm((previous) => ({
+        ...previous,
+        [key]: e.target.value
+      }));
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | SOS
+  |--------------------------------------------------------------------------
+  */
+
+  const toggleSOS = () => {
+    setForm((previous) => ({
+      ...previous,
+
+      isSOS:
+        !previous.isSOS,
+
+      urgency:
+        !previous.isSOS
+          ? 'critical'
+          : previous.urgency
+    }));
   };
 
-  const handleRespond = async (decision) => {
-    if (!respondForm.donorId) {
-      setError(t('requests.donorIdRequired'));
-      return;
-    }
+  /*
+  |--------------------------------------------------------------------------
+  | Timeline
+  |--------------------------------------------------------------------------
+  */
 
-    setError('');
-    setNotice('');
+  const refreshTimeline =
+    async (id) => {
+      setError('');
 
-    try {
-      const res = await requestApi.respond(
-        timeline.requestId,
-        respondForm.donorId,
-        decision,
-        respondForm.reason
-      );
+      try {
+        const res =
+          await requestApi.timeline(id);
 
-      setNotice(res.message);
+        const timelineData =
+          res?.data || res;
+
+        setTimeline(
+          timelineData
+        );
+
+        /*
+         * Find requester reputation.
+         */
+        const request =
+          requests.find(
+            (item) =>
+              String(item._id) ===
+              String(id)
+          );
+
+        const requesterId =
+          request?.requester?._id ||
+          request?.requester;
+
+        if (requesterId) {
+          try {
+            const feedbackRes =
+              await feedbackApi
+                .forRequester(
+                  requesterId
+                );
+
+            setRequesterFeedback(
+              feedbackRes?.data ||
+              feedbackRes ||
+              null
+            );
+          } catch (feedbackErr) {
+            console.error(
+              'Failed to load requester feedback:',
+              feedbackErr
+            );
+
+            setRequesterFeedback(
+              null
+            );
+          }
+        } else {
+          setRequesterFeedback(
+            null
+          );
+        }
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Failed to load request timeline'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Create blood request
+  |--------------------------------------------------------------------------
+  */
+
+  const handleCreate =
+    async (e) => {
+      e.preventDefault();
+
+      setError('');
+      setNotice('');
+
+      try {
+        await requestApi.create({
+          /*
+           * Admin may optionally specify requester.
+           */
+          ...(
+            user?.role === 'Admin' &&
+            form.requester
+              ? {
+                  requester:
+                    form.requester
+                }
+              : {}
+          ),
+
+          patientName:
+            form.patientName,
+
+          bloodGroup:
+            form.bloodGroup,
+
+          unitsNeeded:
+            Number(
+              form.unitsNeeded
+            ),
+
+          urgency:
+            form.urgency,
+
+          hospitalName:
+            form.hospitalName,
+
+          location: {
+            coordinates: [
+              Number(form.lng),
+              Number(form.lat)
+            ],
+
+            address:
+              form.address
+          },
+
+          contactPhone:
+            form.contactPhone,
+
+          notes:
+            form.notes,
+
+          isSOS:
+            form.isSOS
+        });
+
+        setNotice(
+          t(
+            'requests.createdSuccess',
+            {
+              defaultValue:
+                'Blood request submitted successfully'
+            }
+          )
+        );
+
+        setForm(
+          (previous) => ({
+            ...previous,
+
+            patientName: '',
+            notes: '',
+            contactPhone: '',
+            isSOS: false
+          })
+        );
+
+        await loadRequests(
+          filterStatus
+        );
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Failed to create blood request'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Preview matching
+  |--------------------------------------------------------------------------
+  */
+
+  const handleFindMatches =
+    async (requestId) => {
+      setError('');
+      setMatchResult(null);
+
+      try {
+        const res =
+          await requestApi.matches(
+            requestId,
+            {
+              radius:
+                matchRadius,
+
+              includeIneligible:
+                'true'
+            }
+          );
+
+        setMatchResult(
+          res?.data || res
+        );
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Failed to find donor matches'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Persist/run matching
+  |--------------------------------------------------------------------------
+  */
+
+  const handleRunMatching =
+    async (requestId) => {
+      setError('');
+      setNotice('');
+
+      if (!canRunMatching) {
+        setError(
+          'You are not authorized to run donor matching.'
+        );
+
+        return;
+      }
+
+      try {
+        const res =
+          await requestApi
+            .runMatching(
+              requestId,
+              {
+                radius:
+                  matchRadius
+              }
+            );
+
+        setNotice(
+          res?.message ||
+          'Matching completed'
+        );
+
+        setMatchResult(
+          res?.data || res
+        );
+
+        await loadRequests(
+          filterStatus
+        );
+
+        if (
+          timeline?.requestId ===
+          requestId
+        ) {
+          await refreshTimeline(
+            requestId
+          );
+        }
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Failed to run donor matching'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Manage request
+  |--------------------------------------------------------------------------
+  */
+
+  const handleManage =
+    async (requestId) => {
+      setError('');
+      setNotice('');
 
       setRespondForm({
         donorId: '',
-        reason: ''
+        reason: '',
+        shareLocation: true
       });
-
-      await refreshTimeline(timeline.requestId);
-      loadRequests(filterStatus);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleFulfil = async (e) => {
-    e.preventDefault();
-    setError('');
-    setNotice('');
-
-    try {
-      const res = await requestApi.fulfil(
-        timeline.requestId,
-        fulfilForm.donorId,
-        Number(fulfilForm.unitsDonated),
-        fulfilForm.notes
-      );
-
-      setNotice(res.message);
 
       setFulfilForm({
         donorId: '',
@@ -279,353 +614,1127 @@ export default function RequestsPage() {
         notes: ''
       });
 
-      await refreshTimeline(timeline.requestId);
-      loadRequests(filterStatus);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+      await refreshTimeline(
+        requestId
+      );
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Lifecycle transition
+  |--------------------------------------------------------------------------
+  */
+
+  const handleTransition =
+    async (status) => {
+      if (!timeline) {
+        return;
+      }
+
+      setError('');
+      setNotice('');
+
+      try {
+        const res =
+          await requestApi
+            .changeStatus(
+              timeline.requestId,
+              status
+            );
+
+        setNotice(
+          res?.message ||
+          `Status changed to ${status}`
+        );
+
+        await refreshTimeline(
+          timeline.requestId
+        );
+
+        await loadRequests(
+          filterStatus
+        );
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Failed to change request status'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Donor response
+  |--------------------------------------------------------------------------
+  |
+  | Important:
+  |
+  | No donorId is supplied.
+  |
+  | Backend identifies authenticated donor:
+  |
+  | Nova:
+  | role = Donor
+  |
+  | Kader:
+  | role = Patient + donorProfile
+  |--------------------------------------------------------------------------
+  */
+
+  const handleRespond =
+    async (decision) => {
+      if (
+        !canRespondAsDonor
+      ) {
+        setError(
+          'Blood donor registration is required to respond to a matched request.'
+        );
+
+        return;
+      }
+
+      if (!timeline) {
+        return;
+      }
+
+      setError('');
+      setNotice('');
+
+      try {
+        const payload = {
+          decision,
+
+          reason:
+            respondForm.reason,
+
+          shareLocation:
+            Boolean(
+              respondForm
+                .shareLocation
+            )
+        };
+
+        const res =
+          await requestApi.respond(
+            timeline.requestId,
+            payload
+          );
+
+        setNotice(
+          res?.message ||
+          `Request ${decision}`
+        );
+
+        setRespondForm({
+          donorId: '',
+          reason: '',
+          shareLocation: true
+        });
+
+        await refreshTimeline(
+          timeline.requestId
+        );
+
+        await loadRequests(
+          filterStatus
+        );
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Failed to respond to request'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Confirm fulfillment
+  |--------------------------------------------------------------------------
+  */
+
+  const handleFulfil =
+    async (e) => {
+      e.preventDefault();
+
+      if (
+        !canConfirmFulfillment
+      ) {
+        setError(
+          'You are not authorized to verify request fulfillment.'
+        );
+
+        return;
+      }
+
+      if (
+        !fulfilForm.donorId
+      ) {
+        setError(
+          t(
+            'requests.selectDonorFulfill',
+            {
+              defaultValue:
+                'Please select or specify the donor who fulfilled the request'
+            }
+          )
+        );
+
+        return;
+      }
+
+      if (!timeline) {
+        return;
+      }
+
+      setError('');
+      setNotice('');
+
+      try {
+        const res =
+          await requestApi.fulfil(
+            timeline.requestId,
+            fulfilForm.donorId,
+            Number(
+              fulfilForm
+                .unitsDonated
+            ),
+            fulfilForm.notes
+          );
+
+        setNotice(
+          res?.message ||
+          'Donation fulfillment confirmed'
+        );
+
+        setFulfilForm({
+          donorId: '',
+          unitsDonated: 1,
+          notes: ''
+        });
+
+        await refreshTimeline(
+          timeline.requestId
+        );
+
+        await loadRequests(
+          filterStatus
+        );
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Failed to confirm fulfillment'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Accepted donors for fulfillment
+  |--------------------------------------------------------------------------
+  */
+
+  const acceptedResponses =
+    timeline?.responses?.filter(
+      (response) =>
+        response.status ===
+          'accepted' ||
+        response.status ===
+          'completed'
+    ) || [];
+
+  /*
+  |--------------------------------------------------------------------------
+  | Selected request
+  |--------------------------------------------------------------------------
+  */
+
+  const selectedRequest =
+    timeline
+      ? requests.find(
+          (request) =>
+            String(
+              request._id
+            ) ===
+            String(
+              timeline.requestId
+            )
+        )
+      : null;
+
+  const selectedRequesterId =
+    selectedRequest
+      ?.requester?._id ||
+    selectedRequest
+      ?.requester ||
+    timeline?.requester;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Request review capability
+  |--------------------------------------------------------------------------
+  */
+
+  const canReviewRequest =
+    timeline?.currentStatus ===
+      'fulfilled' &&
+    (
+      String(
+        selectedRequesterId
+      ) ===
+        String(
+          user?._id
+        ) ||
+      user?.role === 'Admin'
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Lifecycle transitions visible in UI
+  |--------------------------------------------------------------------------
+  |
+  | Request owner:
+  | cancellation only
+  |
+  | Staff:
+  | operational state transitions
+  |
+  | Fulfilled:
+  | NEVER manually shown
+  |--------------------------------------------------------------------------
+  */
+
+  const selectedRequestOwner =
+    Boolean(
+      selectedRequesterId &&
+      user?._id &&
+      String(
+        selectedRequesterId
+      ) ===
+        String(
+          user._id
+        )
+    );
+
+  const visibleTransitions =
+    isRequestStaff
+      ? (
+          timeline
+            ?.allowedNext ||
+          []
+        ).filter(
+          (status) =>
+            status !==
+            'fulfilled'
+        )
+      : selectedRequestOwner
+        ? (
+            timeline
+              ?.allowedNext ||
+            []
+          ).filter(
+            (status) =>
+              status ===
+              'cancelled'
+          )
+        : [];
+
+  /*
+  |--------------------------------------------------------------------------
+  | Render
+  |--------------------------------------------------------------------------
+  */
 
   return (
     <div className="page">
       <PageHeader
-        title={t('requests.title')}
-        subtitle={t('requests.subtitle')}
+        title={t(
+          'requests.title'
+        )}
+        subtitle={t(
+          'requests.subtitle'
+        )}
       />
 
       <Alert
         message={error}
-        onDismiss={() => setError('')}
+        onDismiss={() =>
+          setError('')
+        }
       />
 
       <Alert
         type="success"
         message={notice}
-        onDismiss={() => setNotice('')}
+        onDismiss={() =>
+          setNotice('')
+        }
       />
 
+      {/* ------------------------------------------------------------- */}
+      {/* CREATE REQUEST + MATCHING SETTINGS                            */}
+      {/* ------------------------------------------------------------- */}
+
       <div className="grid grid-2">
-        <Card title={t('requests.createRequest')}>
-          <form onSubmit={handleCreate}>
-            <button
-              type="button"
-              className={`bb-sos-toggle ${form.isSOS ? 'active' : ''}`}
-              onClick={toggleSOS}
-            >
-              <span className="bb-sos-icon">🚨</span>
-              <span>
-                {form.isSOS
-                  ? t('requests.sosActive')
-                  : t('requests.sosToggle')}
-              </span>
-            </button>
-
-            {form.isSOS && (
-              <p className="bb-sos-note">{t('requests.sosNote')}</p>
+        {canCreateRequest && (
+          <Card
+            title={t(
+              'requests.createRequest'
             )}
+          >
+            <form
+              onSubmit={
+                handleCreate
+              }
+            >
+              <button
+                type="button"
+                className={`bb-sos-toggle ${
+                  form.isSOS
+                    ? 'active'
+                    : ''
+                }`}
+                onClick={
+                  toggleSOS
+                }
+              >
+                <span className="bb-sos-icon">
+                  🚨
+                </span>
 
-            <Field label={t('requests.requesterUserId')}>
-              <input
-                value={form.requester}
-                onChange={set('requester')}
-                required
-              />
-            </Field>
+                <span>
+                  {form.isSOS
+                    ? t(
+                        'requests.sosActive'
+                      )
+                    : t(
+                        'requests.sosToggle'
+                      )}
+                </span>
+              </button>
 
-            <div className="form-row">
-              <Field label={t('requests.patientName')}>
-                <input
-                  value={form.patientName}
-                  onChange={set('patientName')}
-                  required
-                />
-              </Field>
+              {form.isSOS && (
+                <p className="bb-sos-note">
+                  {t(
+                    'requests.sosNote'
+                  )}
+                </p>
+              )}
 
-              <Field label={t('requests.bloodGroup')}>
-                <select
-                  value={form.bloodGroup}
-                  onChange={set('bloodGroup')}
+              {user?.role ===
+              'Admin' ? (
+                <Field
+                  label={t(
+                    'requests.requesterUserId'
+                  )}
                 >
-                  {BLOOD_GROUPS.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
+                  <input
+                    value={
+                      form.requester
+                    }
+                    onChange={
+                      set(
+                        'requester'
+                      )
+                    }
+                    placeholder={
+                      user?._id ||
+                      ''
+                    }
+                  />
+                </Field>
+              ) : (
+                <div
+                  style={{
+                    marginBottom:
+                      16,
+                    fontSize: 14
+                  }}
+                  className="muted"
+                >
+                  {t(
+                    'requests.creatingAs',
+                    {
+                      defaultValue:
+                        'Posting request as:'
+                    }
+                  )}{' '}
+
+                  <b>
+                    {user?.name ||
+                      'Authenticated User'}
+                  </b>{' '}
+
+                  <span
+                    className="badge neutral"
+                    style={{
+                      marginLeft: 6
+                    }}
+                  >
+                    {user?.role}
+                  </span>
+                </div>
+              )}
+
+              <div className="form-row">
+                <Field
+                  label={t(
+                    'requests.patientName'
+                  )}
+                >
+                  <input
+                    value={
+                      form.patientName
+                    }
+                    onChange={
+                      set(
+                        'patientName'
+                      )
+                    }
+                    required
+                  />
+                </Field>
+
+                <Field
+                  label={t(
+                    'requests.bloodGroup'
+                  )}
+                >
+                  <select
+                    value={
+                      form.bloodGroup
+                    }
+                    onChange={
+                      set(
+                        'bloodGroup'
+                      )
+                    }
+                  >
+                    {BLOOD_GROUPS.map(
+                      (group) => (
+                        <option
+                          key={
+                            group
+                          }
+                          value={
+                            group
+                          }
+                        >
+                          {group}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </Field>
+              </div>
+
+              <div className="form-row">
+                <Field
+                  label={t(
+                    'requests.unitsNeeded'
+                  )}
+                >
+                  <input
+                    type="number"
+                    min="1"
+                    value={
+                      form.unitsNeeded
+                    }
+                    onChange={
+                      set(
+                        'unitsNeeded'
+                      )
+                    }
+                    required
+                  />
+                </Field>
+
+                <Field
+                  label={t(
+                    'requests.urgency'
+                  )}
+                >
+                  <select
+                    value={
+                      form.urgency
+                    }
+                    onChange={
+                      set(
+                        'urgency'
+                      )
+                    }
+                    disabled={
+                      form.isSOS
+                    }
+                  >
+                    <option value="routine">
+                      {t(
+                        'common.routine'
+                      )}
                     </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
 
-            <div className="form-row">
-              <Field label={t('requests.unitsNeeded')}>
+                    <option value="urgent">
+                      {t(
+                        'common.urgent'
+                      )}
+                    </option>
+
+                    <option value="critical">
+                      {t(
+                        'common.critical'
+                      )}
+                    </option>
+                  </select>
+                </Field>
+              </div>
+
+              <Field
+                label={t(
+                  'requests.hospital'
+                )}
+              >
                 <input
-                  type="number"
-                  min="1"
-                  value={form.unitsNeeded}
-                  onChange={set('unitsNeeded')}
-                  required
+                  value={
+                    form.hospitalName
+                  }
+                  onChange={
+                    set(
+                      'hospitalName'
+                    )
+                  }
                 />
               </Field>
 
-              <Field label={t('requests.urgency')}>
-                <select
-                  value={form.urgency}
-                  onChange={set('urgency')}
-                  disabled={form.isSOS}
+              <div className="form-row">
+                <Field
+                  label={t(
+                    'requests.latitude'
+                  )}
                 >
-                  <option value="routine">
-                    {t('common.routine')}
-                  </option>
-                  <option value="urgent">
-                    {t('common.urgent')}
-                  </option>
-                  <option value="critical">
-                    {t('common.critical')}
-                  </option>
-                </select>
-              </Field>
-            </div>
+                  <input
+                    value={
+                      form.lat
+                    }
+                    onChange={
+                      set('lat')
+                    }
+                    required
+                  />
+                </Field>
 
-            <Field label={t('requests.hospital')}>
-              <input
-                value={form.hospitalName}
-                onChange={set('hospitalName')}
-              />
-            </Field>
+                <Field
+                  label={t(
+                    'requests.longitude'
+                  )}
+                >
+                  <input
+                    value={
+                      form.lng
+                    }
+                    onChange={
+                      set('lng')
+                    }
+                    required
+                  />
+                </Field>
+              </div>
 
-            <div className="form-row">
-              <Field label={t('requests.latitude')}>
+              <Field
+                label={t(
+                  'requests.area'
+                )}
+              >
                 <input
-                  value={form.lat}
-                  onChange={set('lat')}
-                  required
+                  value={
+                    form.address
+                  }
+                  onChange={
+                    set(
+                      'address'
+                    )
+                  }
                 />
               </Field>
 
-              <Field label={t('requests.longitude')}>
+              <Field
+                label={t(
+                  'requests.contactPhone'
+                )}
+              >
                 <input
-                  value={form.lng}
-                  onChange={set('lng')}
-                  required
+                  value={
+                    form.contactPhone
+                  }
+                  onChange={
+                    set(
+                      'contactPhone'
+                    )
+                  }
                 />
               </Field>
-            </div>
 
-            <Field label={t('requests.area')}>
-              <input
-                value={form.address}
-                onChange={set('address')}
-              />
-            </Field>
+              <Field
+                label={t(
+                  'requests.notes'
+                )}
+              >
+                <input
+                  value={
+                    form.notes
+                  }
+                  onChange={
+                    set(
+                      'notes'
+                    )
+                  }
+                />
+              </Field>
 
-            <Field label={t('requests.contactPhone')}>
-              <input
-                value={form.contactPhone}
-                onChange={set('contactPhone')}
-              />
-            </Field>
+              <button type="submit">
+                {t(
+                  'requests.createRequest'
+                )}
+              </button>
+            </form>
+          </Card>
+        )}
 
-            <button type="submit">
-              {t('requests.createRequest')}
-            </button>
-          </form>
-        </Card>
-
-        <Card title={t('requests.matchingSettings')}>
-          <Field label={t('requests.searchRadius')}>
+        <Card
+          title={t(
+            'requests.matchingSettings'
+          )}
+        >
+          <Field
+            label={t(
+              'requests.searchRadius'
+            )}
+          >
             <input
               type="number"
-              value={matchRadius}
-              onChange={(e) => setMatchRadius(e.target.value)}
+              value={
+                matchRadius
+              }
+              onChange={(e) =>
+                setMatchRadius(
+                  e.target.value
+                )
+              }
             />
           </Field>
 
           <p className="muted">
-            {t('requests.matchingDescription')}
+            {t(
+              'requests.matchingDescription'
+            )}
           </p>
 
-          <Field label={t('requests.filterByStatus')}>
+          <Field
+            label={t(
+              'requests.filterByStatus'
+            )}
+          >
             <select
-              value={filterStatus}
+              value={
+                filterStatus
+              }
               onChange={(e) => {
-                setFilterStatus(e.target.value);
-                loadRequests(e.target.value);
+                const value =
+                  e.target.value;
+
+                setFilterStatus(
+                  value
+                );
+
+                loadRequests(
+                  value
+                );
               }}
             >
               <option value="">
-                {t('requests.all')}
+                {t(
+                  'requests.all'
+                )}
               </option>
+
               <option value="pending">
-                {t('common.pending')}
+                {t(
+                  'common.pending'
+                )}
               </option>
+
               <option value="matched">
-                {t('common.matched')}
+                {t(
+                  'common.matched'
+                )}
               </option>
+
               <option value="accepted">
-                {t('common.accepted')}
+                {t(
+                  'common.accepted'
+                )}
               </option>
+
               <option value="fulfilled">
-                {t('common.fulfilled')}
+                {t(
+                  'common.fulfilled'
+                )}
               </option>
+
               <option value="cancelled">
-                {t('requests.cancelled')}
+                {t(
+                  'requests.cancelled'
+                )}
+              </option>
+
+              <option value="expired">
+                {t(
+                  'common.expired',
+                  {
+                    defaultValue:
+                      'Expired'
+                  }
+                )}
               </option>
             </select>
           </Field>
         </Card>
       </div>
 
+      {/* ------------------------------------------------------------- */}
+      {/* REQUEST TABLE                                                */}
+      {/* ------------------------------------------------------------- */}
+
       <Card
-        title={`${t('requests.requests')} (${requests.length})`}
+        title={`${t(
+          'requests.requests'
+        )} (${requests.length})`}
       >
         {loading ? (
           <Loading />
-        ) : requests.length === 0 ? (
+        ) : requests.length ===
+          0 ? (
           <Empty>
-            {t('requests.noRequests')}
+            {t(
+              'requests.noRequests'
+            )}
           </Empty>
         ) : (
           <table>
             <thead>
               <tr>
-                <th>{t('requests.patient')}</th>
-                <th>{t('requests.group')}</th>
-                <th>{t('requests.units')}</th>
-                <th>{t('requests.urgency')}</th>
-                <th>{t('requests.status')}</th>
-                <th>{t('requests.waiting')}</th>
+                <th>
+                  {t(
+                    'requests.patient'
+                  )}
+                </th>
+
+                <th>
+                  {t(
+                    'requests.group'
+                  )}
+                </th>
+
+                <th>
+                  {t(
+                    'requests.units'
+                  )}
+                </th>
+
+                <th>
+                  {t(
+                    'requests.urgency'
+                  )}
+                </th>
+
+                <th>
+                  {t(
+                    'requests.status'
+                  )}
+                </th>
+
+                <th>
+                  {t(
+                    'requests.waiting'
+                  )}
+                </th>
+
                 <th></th>
               </tr>
             </thead>
 
             <tbody>
-              {requests.map((r) => (
-                <tr key={r._id}>
-                  <td>
-                    <b>{r.patientName}</b>
-                    <br />
-                    <span className="muted">
-                      {r.hospitalName || r.location?.address}
-                    </span>
-                  </td>
+              {requests.map(
+                (request) => (
+                  <tr
+                    key={
+                      request._id
+                    }
+                  >
+                    <td>
+                      <b>
+                        {
+                          request.patientName
+                        }
+                      </b>
 
-                  <td>
-                    <BloodBadge group={r.bloodGroup} />
-                  </td>
+                      {request.publicId && (
+                        <span
+                          className="badge neutral"
+                          style={{
+                            marginLeft:
+                              6,
+                            fontSize:
+                              11
+                          }}
+                        >
+                          {
+                            request.publicId
+                          }
+                        </span>
+                      )}
 
-                  <td>
-                    {r.unitsFulfilled}/{r.unitsNeeded}
+                      <br />
 
-                    <div className="score-bar">
-                      <span
-                        style={{
-                          width: `${(
-                            (r.unitsFulfilled / r.unitsNeeded) *
-                            100
-                          )}%`
-                        }}
+                      <span className="muted">
+                        {request.hospitalName ||
+                          request.location
+                            ?.address ||
+                          '—'}
+                      </span>
+                    </td>
+
+                    <td>
+                      <BloodBadge
+                        group={
+                          request.bloodGroup
+                        }
                       />
-                    </div>
-                  </td>
+                    </td>
 
-                  <td>
-                    <Badge
-                      type={URGENCY_BADGE[r.urgency]}
-                    >
-                      {t(`common.${r.urgency}`)}
-                    </Badge>
-                  </td>
-
-                  <td>
-                    <Badge
-                      type={STATUS_BADGE[r.status]}
-                    >
-                      {t(`common.${r.status}`, {
-                        defaultValue: r.status
-                      })}
-                    </Badge>
-                  </td>
-
-                  <td>
-                    {r.hoursWaiting}
-                    {t('requests.hoursShort')}
-                  </td>
-
-                  <td>
-                    <button
-                      className="small secondary"
-                      onClick={() =>
-                        handleFindMatches(r._id)
+                    <td>
+                      {request.unitsFulfilled}/
+                      {
+                        request.unitsNeeded
                       }
-                    >
-                      {t('requests.matches')}
-                    </button>{' '}
 
-                    <button
-                      className="small secondary"
-                      onClick={() =>
-                        handleRunMatching(r._id)
-                      }
-                    >
-                      {t('requests.run')}
-                    </button>{' '}
+                      <div className="score-bar">
+                        <span
+                          style={{
+                            width: `${
+                              request.unitsNeeded
+                                ? (
+                                    request.unitsFulfilled /
+                                    request.unitsNeeded
+                                  ) *
+                                  100
+                                : 0
+                            }%`
+                          }}
+                        />
+                      </div>
+                    </td>
 
-                    <button
-                      className="small"
-                      onClick={() =>
-                        handleManage(r._id)
-                      }
-                    >
-                      {t('requests.manage')}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td>
+                      <Badge
+                        type={
+                          URGENCY_BADGE[
+                            request
+                              .urgency
+                          ]
+                        }
+                      >
+                        {t(
+                          `common.${request.urgency}`,
+                          {
+                            defaultValue:
+                              request.urgency
+                          }
+                        )}
+                      </Badge>
+                    </td>
+
+                    <td>
+                      <Badge
+                        type={
+                          STATUS_BADGE[
+                            request
+                              .status
+                          ]
+                        }
+                      >
+                        {t(
+                          `common.${request.status}`,
+                          {
+                            defaultValue:
+                              request.status
+                          }
+                        )}
+                      </Badge>
+                    </td>
+
+                    <td>
+                      {request.hoursWaiting}
+                      {t(
+                        'requests.hoursShort'
+                      )}
+                    </td>
+
+                    <td>
+                      <button
+                        type="button"
+                        className="small secondary"
+                        onClick={() =>
+                          handleFindMatches(
+                            request._id
+                          )
+                        }
+                      >
+                        {t(
+                          'requests.matches'
+                        )}
+                      </button>{' '}
+
+                      {canRunMatching && (
+                        <>
+                          <button
+                            type="button"
+                            className="small secondary"
+                            onClick={() =>
+                              handleRunMatching(
+                                request._id
+                              )
+                            }
+                          >
+                            {t(
+                              'requests.run'
+                            )}
+                          </button>{' '}
+                        </>
+                      )}
+
+                      <button
+                        type="button"
+                        className="small"
+                        onClick={() =>
+                          handleManage(
+                            request._id
+                          )
+                        }
+                      >
+                        {t(
+                          'requests.manage'
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              )}
             </tbody>
           </table>
         )}
       </Card>
 
+      {/* ------------------------------------------------------------- */}
+      {/* REQUEST LIFECYCLE                                            */}
+      {/* ------------------------------------------------------------- */}
+
       {timeline && (
         <Card
-          title={`${t('requests.lifecycle')} — ${timeline.patientName}`}
+          title={`${t(
+            'requests.lifecycle'
+          )} — ${
+            timeline.patientName ||
+            ''
+          } (${
+            timeline.publicId ||
+            ''
+          })`}
         >
           <div
             className="grid grid-3"
-            style={{ marginBottom: 18 }}
+            style={{
+              marginBottom: 18
+            }}
           >
             <div>
-              <h3>{t('requests.currentStatus')}</h3>
+              <h3>
+                {t(
+                  'requests.currentStatus'
+                )}
+              </h3>
 
               <Badge
-                type={STATUS_BADGE[timeline.currentStatus]}
+                type={
+                  STATUS_BADGE[
+                    timeline
+                      .currentStatus
+                  ]
+                }
               >
-                {t(`common.${timeline.currentStatus}`, {
-                  defaultValue: timeline.currentStatus
-                })}
+                {t(
+                  `common.${timeline.currentStatus}`,
+                  {
+                    defaultValue:
+                      timeline.currentStatus
+                  }
+                )}
               </Badge>
 
               {timeline.isTerminal && (
                 <div
                   className="muted"
-                  style={{ marginTop: 6 }}
+                  style={{
+                    marginTop: 6
+                  }}
                 >
-                  {t('requests.terminalState')}
+                  {t(
+                    'requests.terminalState'
+                  )}
                 </div>
               )}
             </div>
 
             <div>
-              <h3>{t('requests.progress')}</h3>
+              <h3>
+                {t(
+                  'requests.progress'
+                )}
+              </h3>
 
               <div>
-                <b>{timeline.unitsFulfilled}</b>{' '}
-                {t('requests.of')}{' '}
-                {timeline.unitsNeeded}{' '}
-                {t('requests.units')}
+                <b>
+                  {
+                    timeline.unitsFulfilled
+                  }
+                </b>{' '}
+
+                {t(
+                  'requests.of'
+                )}{' '}
+
+                {
+                  timeline.unitsNeeded
+                }{' '}
+
+                {t(
+                  'requests.units'
+                )}
+
                 <span className="muted">
                   {' · '}
-                  {timeline.unitsRemaining}{' '}
-                  {t('requests.remaining')}
+
+                  {
+                    timeline.unitsRemaining
+                  }{' '}
+
+                  {t(
+                    'requests.remaining'
+                  )}
                 </span>
               </div>
 
@@ -633,9 +1742,13 @@ export default function RequestsPage() {
                 <span
                   style={{
                     width: `${
-                      (timeline.unitsFulfilled /
-                        timeline.unitsNeeded) *
-                      100
+                      timeline.unitsNeeded
+                        ? (
+                            timeline.unitsFulfilled /
+                            timeline.unitsNeeded
+                          ) *
+                          100
+                        : 0
                     }%`
                   }}
                 />
@@ -643,494 +1756,1366 @@ export default function RequestsPage() {
 
               <div
                 className="muted"
-                style={{ marginTop: 4 }}
+                style={{
+                  marginTop: 4
+                }}
               >
-                {t('requests.waiting')}{' '}
-                {timeline.hoursWaiting}
-                {t('requests.hoursShort')}
+                {t(
+                  'requests.waiting'
+                )}{' '}
+
+                {
+                  timeline.hoursWaiting
+                }
+
+                {t(
+                  'requests.hoursShort'
+                )}
+
                 {' · '}
-                {t('requests.created')}{' '}
-                {formatDate(timeline.createdAt)}
+
+                {t(
+                  'requests.created'
+                )}{' '}
+
+                {formatDate(
+                  timeline.createdAt
+                )}
               </div>
             </div>
 
             <div>
-              <h3>{t('requests.responses')}</h3>
+              <h3>
+                {t(
+                  'requests.responses'
+                )}
+              </h3>
 
               <div className="muted">
-                {timeline.responseSummary.total}{' '}
-                {t('requests.invited')}
+                {timeline
+                  .responseSummary
+                  ?.total ||
+                  0}{' '}
+
+                {t(
+                  'requests.invited'
+                )}
+
                 {' · '}
-                {timeline.responseSummary.pending}{' '}
-                {t('requests.pending')}
+
+                {timeline
+                  .responseSummary
+                  ?.pending ||
+                  0}{' '}
+
+                {t(
+                  'requests.pending'
+                )}
+
                 {' · '}
-                {timeline.responseSummary.accepted}{' '}
-                {t('requests.accepted')}
+
+                {timeline
+                  .responseSummary
+                  ?.accepted ||
+                  0}{' '}
+
+                {t(
+                  'requests.accepted'
+                )}
+
                 {' · '}
-                {timeline.responseSummary.declined}{' '}
-                {t('requests.declined')}
+
+                {timeline
+                  .responseSummary
+                  ?.declined ||
+                  0}{' '}
+
+                {t(
+                  'requests.declined'
+                )}
+
                 {' · '}
-                {timeline.responseSummary.completed}{' '}
-                {t('requests.completed')}
+
+                {timeline
+                  .responseSummary
+                  ?.completed ||
+                  0}{' '}
+
+                {t(
+                  'requests.completed'
+                )}
               </div>
             </div>
           </div>
 
-          <h3>{t('requests.permittedTransitions')}</h3>
+          {/* --------------------------------------------------------- */}
+          {/* REQUESTER REPUTATION                                     */}
+          {/* --------------------------------------------------------- */}
 
-          {timeline.allowedNext.length === 0 ? (
+          {requesterFeedback && (
+            <div
+              style={{
+                marginBottom: 18
+              }}
+            >
+              <h3>
+                {t(
+                  'feedback.requesterReputation',
+                  {
+                    defaultValue:
+                      'Requester Reputation'
+                  }
+                )}
+              </h3>
+
+              <div className="muted">
+                <strong>
+                  {requesterFeedback
+                    .averageRating
+                    ? `${requesterFeedback.averageRating}/5`
+                    : t(
+                        'feedback.noRating'
+                      )}
+                </strong>
+
+                {' · '}
+
+                {t(
+                  'feedback.reviewCount',
+                  {
+                    count:
+                      requesterFeedback
+                        .totalReviews
+                  }
+                )}
+              </div>
+
+              {requesterFeedback
+                .reviews?.length >
+                0 && (
+                <div
+                  className="bb-feedback-list"
+                  style={{
+                    marginTop: 8
+                  }}
+                >
+                  {requesterFeedback.reviews.map(
+                    (review) => (
+                      <article
+                        className="bb-feedback-review"
+                        key={
+                          review._id
+                        }
+                      >
+                        <div className="bb-feedback-review-head">
+                          <strong>
+                            {review.userId
+                              ?.name ||
+                              t(
+                                'feedback.user'
+                              )}
+                          </strong>
+
+                          <span>
+                            {
+                              review.rating
+                            }
+                            /5
+                          </span>
+                        </div>
+
+                        {review.comment && (
+                          <p>
+                            {
+                              review.comment
+                            }
+                          </p>
+                        )}
+                      </article>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* --------------------------------------------------------- */}
+          {/* PERMITTED TRANSITIONS                                    */}
+          {/* --------------------------------------------------------- */}
+
+          <h3>
+            {t(
+              'requests.permittedTransitions'
+            )}
+          </h3>
+
+          {visibleTransitions.length ===
+          0 ? (
             <p
               className="muted"
-              style={{ marginTop: 0 }}
+              style={{
+                marginTop: 0
+              }}
             >
-              {t('requests.noTransitions')}
+              {t(
+                'requests.noTransitions'
+              )}
             </p>
           ) : (
             <div
               style={{
                 display: 'flex',
                 gap: 8,
-                flexWrap: 'wrap',
-                marginBottom: 18
+                flexWrap:
+                  'wrap',
+                marginBottom:
+                  18
               }}
             >
-              {timeline.allowedNext.map((s) => (
-                <button
-                  key={s}
-                  className="small secondary"
-                  onClick={() =>
-                    handleTransition(s)
-                  }
-                >
-                  → {t(`common.${s}`, {
-                    defaultValue: s
-                  })}
-                </button>
-              ))}
+              {visibleTransitions.map(
+                (status) => (
+                  <button
+                    type="button"
+                    key={
+                      status
+                    }
+                    className="small secondary"
+                    onClick={() =>
+                      handleTransition(
+                        status
+                      )
+                    }
+                  >
+                    →{' '}
+                    {t(
+                      `common.${status}`,
+                      {
+                        defaultValue:
+                          status
+                      }
+                    )}
+                  </button>
+                )
+              )}
             </div>
           )}
 
-          <p
-            className="muted"
-            style={{
-              marginTop: -10,
-              marginBottom: 18
-            }}
-          >
-            {t('requests.transitionDescription')}
-          </p>
+          {/* --------------------------------------------------------- */}
+          {/* NON-TERMINAL ACTIONS                                     */}
+          {/* --------------------------------------------------------- */}
 
           {!timeline.isTerminal && (
             <div className="grid grid-2">
-              <div>
-                <h3>{t('requests.recordDonorResponse')}</h3>
+              {/* ----------------------------------------------------- */}
+              {/* DONOR RESPONSE                                       */}
+              {/* ----------------------------------------------------- */}
 
-                <Field label={t('requests.donorId')}>
-                  <input
-                    value={respondForm.donorId}
-                    onChange={(e) =>
-                      setRespondForm((f) => ({
-                        ...f,
-                        donorId: e.target.value
-                      }))
-                    }
-                  />
-                </Field>
+              {canRespondAsDonor && (
+                <div>
+                  <h3>
+                    {t(
+                      'requests.recordDonorResponse'
+                    )}
+                  </h3>
 
-                <Field
-                  label={t('requests.declineReason')}
-                >
-                  <input
-                    value={respondForm.reason}
-                    onChange={(e) =>
-                      setRespondForm((f) => ({
-                        ...f,
-                        reason: e.target.value
-                      }))
-                    }
-                  />
-                </Field>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8
-                  }}
-                >
-                  <button
-                    className="small"
-                    onClick={() =>
-                      handleRespond('accepted')
-                    }
+                  <div
+                    style={{
+                      marginBottom:
+                        14,
+                      fontSize: 13
+                    }}
+                    className="muted"
                   >
-                    {t('requests.accept')}
-                  </button>
-
-                  <button
-                    className="small secondary"
-                    onClick={() =>
-                      handleRespond('declined')
-                    }
-                  >
-                    {t('requests.decline')}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <h3>{t('requests.recordDonation')}</h3>
-
-                <form onSubmit={handleFulfil}>
-                  <Field label={t('requests.donorId')}>
-                    <input
-                      value={fulfilForm.donorId}
-                      onChange={(e) =>
-                        setFulfilForm((f) => ({
-                          ...f,
-                          donorId: e.target.value
-                        }))
+                    {t(
+                      'requests.respondingAs',
+                      {
+                        defaultValue:
+                          'Responding as:'
                       }
-                      required
+                    )}{' '}
+
+                    <b>
+                      {user?.name}
+                    </b>
+
+                    {(user?.donorPublicId ||
+                      user?.publicId ||
+                      user
+                        ?.donorProfile
+                        ?.publicId) && (
+                      <>
+                        {' · '}
+
+                        {user?.donorPublicId ||
+                          user?.publicId ||
+                          user
+                            ?.donorProfile
+                            ?.publicId}
+                      </>
+                    )}
+                  </div>
+
+                  <Field
+                    label={t(
+                      'requests.declineReason'
+                    )}
+                  >
+                    <input
+                      value={
+                        respondForm.reason
+                      }
+                      onChange={(e) =>
+                        setRespondForm(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+
+                            reason:
+                              e
+                                .target
+                                .value
+                          })
+                        )
+                      }
+                      placeholder="Optional notes or reason for decline"
                     />
                   </Field>
 
-                  <div className="form-row">
-                    <Field label={t('requests.units')}>
+                  <div
+                    style={{
+                      marginBottom:
+                        14
+                    }}
+                  >
+                    <label
+                      style={{
+                        display:
+                          'flex',
+                        alignItems:
+                          'center',
+                        gap: 6,
+                        fontSize:
+                          13,
+                        cursor:
+                          'pointer'
+                      }}
+                    >
                       <input
-                        type="number"
-                        step="0.5"
-                        min="0.5"
-                        value={fulfilForm.unitsDonated}
-                        onChange={(e) =>
-                          setFulfilForm((f) => ({
-                            ...f,
-                            unitsDonated: e.target.value
-                          }))
+                        type="checkbox"
+                        checked={
+                          respondForm
+                            .shareLocation
                         }
-                        required
-                      />
-                    </Field>
+                        onChange={(e) =>
+                          setRespondForm(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
 
-                    <Field label={t('requests.notes')}>
-                      <input
-                        value={fulfilForm.notes}
-                        onChange={(e) =>
-                          setFulfilForm((f) => ({
-                            ...f,
-                            notes: e.target.value
-                          }))
+                              shareLocation:
+                                e
+                                  .target
+                                  .checked
+                            })
+                          )
                         }
                       />
-                    </Field>
+
+                      {t(
+                        'requests.shareApproxLocation',
+                        {
+                          defaultValue:
+                            'Share my approximate area coordinates with requester'
+                        }
+                      )}
+                    </label>
                   </div>
 
-                  <button
-                    type="submit"
-                    className="small"
+                  <div
+                    style={{
+                      display:
+                        'flex',
+                      gap: 8
+                    }}
                   >
-                    {t('requests.recordDonation')}
-                  </button>
-                </form>
-              </div>
+                    <button
+                      type="button"
+                      className="small"
+                      onClick={() =>
+                        handleRespond(
+                          'accepted'
+                        )
+                      }
+                    >
+                      {t(
+                        'requests.accept',
+                        {
+                          defaultValue:
+                            'I Can Help'
+                        }
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="small secondary"
+                      onClick={() =>
+                        handleRespond(
+                          'declined'
+                        )
+                      }
+                    >
+                      {t(
+                        'requests.decline'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ----------------------------------------------------- */}
+              {/* VERIFIED FULFILLMENT                                 */}
+              {/* ----------------------------------------------------- */}
+
+              {canConfirmFulfillment && (
+                <div>
+                  <h3>
+                    {t(
+                      'requests.recordDonation',
+                      {
+                        defaultValue:
+                          'Confirm Fulfilled Donation'
+                      }
+                    )}
+                  </h3>
+
+                  <form
+                    onSubmit={
+                      handleFulfil
+                    }
+                  >
+                    <Field
+                      label={t(
+                        'requests.donor'
+                      )}
+                    >
+                      {acceptedResponses.length >
+                      0 ? (
+                        <select
+                          value={
+                            fulfilForm.donorId
+                          }
+                          onChange={(e) =>
+                            setFulfilForm(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                donorId:
+                                  e
+                                    .target
+                                    .value
+                              })
+                            )
+                          }
+                          required
+                        >
+                          <option value="">
+                            --{' '}
+                            {t(
+                              'requests.selectAcceptedDonor',
+                              {
+                                defaultValue:
+                                  'Select Responded Donor'
+                              }
+                            )}{' '}
+                            --
+                          </option>
+
+                          {acceptedResponses.map(
+                            (
+                              response
+                            ) => (
+                              <option
+                                key={
+                                  response
+                                    .donor
+                                    ?._id ||
+                                  response._id
+                                }
+                                value={
+                                  response
+                                    .donor
+                                    ?._id ||
+                                  ''
+                                }
+                              >
+                                {response
+                                  .donor
+                                  ?.name ||
+                                  'Donor'}
+
+                                {' ('}
+
+                                {response
+                                  .donor
+                                  ?.bloodGroup ||
+                                  ''}
+
+                                {')'}
+
+                                {response
+                                  .donor
+                                  ?.publicId
+                                  ? ` — ${response.donor.publicId}`
+                                  : ''}
+                              </option>
+                            )
+                          )}
+                        </select>
+                      ) : (
+                        <input
+                          value={
+                            fulfilForm.donorId
+                          }
+                          onChange={(e) =>
+                            setFulfilForm(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                donorId:
+                                  e
+                                    .target
+                                    .value
+                              })
+                            )
+                          }
+                          placeholder="Enter Donor ID (DON-XXXXXX)"
+                          required
+                        />
+                      )}
+                    </Field>
+
+                    <div className="form-row">
+                      <Field
+                        label={t(
+                          'requests.units'
+                        )}
+                      >
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0.5"
+                          value={
+                            fulfilForm
+                              .unitsDonated
+                          }
+                          onChange={(e) =>
+                            setFulfilForm(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                unitsDonated:
+                                  e
+                                    .target
+                                    .value
+                              })
+                            )
+                          }
+                          required
+                        />
+                      </Field>
+
+                      <Field
+                        label={t(
+                          'requests.notes'
+                        )}
+                      >
+                        <input
+                          value={
+                            fulfilForm.notes
+                          }
+                          onChange={(e) =>
+                            setFulfilForm(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                notes:
+                                  e
+                                    .target
+                                    .value
+                              })
+                            )
+                          }
+                          placeholder="Optional fulfillment notes"
+                        />
+                      </Field>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="small"
+                    >
+                      {t(
+                        'requests.recordDonation',
+                        {
+                          defaultValue:
+                            'Confirm Fulfillment'
+                        }
+                      )}
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
           )}
 
-          {timeline.responses.length > 0 && (
-            <div style={{ marginTop: 18 }}>
-              <h3>{t('requests.invitedDonors')}</h3>
+          {/* --------------------------------------------------------- */}
+          {/* DONOR RESPONSES                                          */}
+          {/* --------------------------------------------------------- */}
 
-              <table>
-                <thead>
-                  <tr>
-                    <th>{t('requests.donor')}</th>
-                    <th>{t('requests.group')}</th>
-                    <th>{t('requests.score')}</th>
-                    <th>{t('requests.response')}</th>
-                    <th>{t('requests.responded')}</th>
-                  </tr>
-                </thead>
+          {timeline.responses &&
+            timeline.responses
+              .length > 0 && (
+              <div
+                style={{
+                  marginTop: 18
+                }}
+              >
+                <h3>
+                  {t(
+                    'requests.invitedDonors',
+                    {
+                      defaultValue:
+                        'Donor Responses & Coordination'
+                    }
+                  )}
+                </h3>
 
-                <tbody>
-                  {timeline.responses.map((r) => (
-                    <tr key={r._id}>
-                      <td>
-                        <b>{r.donor?.name}</b>
-                        <br />
-                        <span className="muted">
-                          {r.donor?.phone}
-                        </span>
-                      </td>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>
+                        {t(
+                          'requests.donor'
+                        )}
+                      </th>
 
-                      <td>
-                        <BloodBadge
-                          group={r.donor?.bloodGroup}
-                        />
-                      </td>
+                      <th>
+                        {t(
+                          'requests.group'
+                        )}
+                      </th>
 
-                      <td className="muted">
-                        {r.matchScore || '—'}
-                      </td>
+                      <th>
+                        {t(
+                          'requests.score'
+                        )}
+                      </th>
 
-                      <td>
-                        <Badge
-                          type={
-                            RESPONSE_BADGE[r.status]
+                      <th>
+                        {t(
+                          'requests.response'
+                        )}
+                      </th>
+
+                      <th>
+                        {t(
+                          'requests.responded'
+                        )}
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {timeline.responses.map(
+                      (
+                        response
+                      ) => (
+                        <tr
+                          key={
+                            response._id
                           }
                         >
-                          {t(`requests.${r.status}`, {
-                            defaultValue: r.status
-                          })}
-                        </Badge>
+                          <td>
+                            <b>
+                              {response
+                                .donor
+                                ?.name ||
+                                'Donor'}
+                            </b>
 
-                        {r.declineReason && (
-                          <div className="muted">
-                            {r.declineReason}
-                          </div>
-                        )}
-                      </td>
+                            {response
+                              .donor
+                              ?.publicId && (
+                              <span
+                                className="badge neutral"
+                                style={{
+                                  marginLeft:
+                                    6,
+                                  fontSize:
+                                    10
+                                }}
+                              >
+                                {
+                                  response
+                                    .donor
+                                    .publicId
+                                }
+                              </span>
+                            )}
 
-                      <td className="muted">
-                        {r.respondedAt
-                          ? formatDate(r.respondedAt)
-                          : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            <br />
+
+                            <span className="muted">
+                              {response
+                                .donor
+                                ?.phone ||
+                                'Contact masked'}
+
+                              {response.shareLocation && (
+                                <span
+                                  style={{
+                                    color:
+                                      '#047481',
+                                    marginLeft:
+                                      6,
+                                    fontWeight:
+                                      500
+                                  }}
+                                >
+                                  {' '}
+                                  •{' '}
+
+                                  {t(
+                                    'requests.locationShared',
+                                    {
+                                      defaultValue:
+                                        'Area Shared'
+                                    }
+                                  )}
+                                </span>
+                              )}
+                            </span>
+                          </td>
+
+                          <td>
+                            <BloodBadge
+                              group={
+                                response
+                                  .donor
+                                  ?.bloodGroup
+                              }
+                            />
+                          </td>
+
+                          <td className="muted">
+                            {response.matchScore ||
+                              '—'}
+                          </td>
+
+                          <td>
+                            <Badge
+                              type={
+                                RESPONSE_BADGE[
+                                  response
+                                    .status
+                                ]
+                              }
+                            >
+                              {t(
+                                `requests.${response.status}`,
+                                {
+                                  defaultValue:
+                                    response.status
+                                }
+                              )}
+                            </Badge>
+
+                            {response.declineReason && (
+                              <div className="muted">
+                                {
+                                  response.declineReason
+                                }
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="muted">
+                            {response.respondedAt
+                              ? formatDate(
+                                  response.respondedAt
+                                )
+                              : '—'}
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+          {/* --------------------------------------------------------- */}
+          {/* REQUEST FEEDBACK                                         */}
+          {/* --------------------------------------------------------- */}
+
+          {canReviewRequest && (
+            <div
+              className="bb-feedback-section"
+              style={{
+                marginTop: 18
+              }}
+            >
+              <h3>
+                {t(
+                  'feedback.requestTitle',
+                  {
+                    defaultValue:
+                      'Rate this request experience'
+                  }
+                )}
+              </h3>
+
+              <p className="muted">
+                {t(
+                  'feedback.requestSubtitle'
+                )}
+              </p>
+
+              <FeedbackPanel
+                targetType="request"
+                targetId={
+                  timeline.requestId
+                }
+              />
             </div>
           )}
 
           <button
+            type="button"
             className="secondary small"
-            style={{ marginTop: 16 }}
-            onClick={() => setTimeline(null)}
+            style={{
+              marginTop: 16
+            }}
+            onClick={() =>
+              setTimeline(null)
+            }
           >
-            {t('requests.close')}
+            {t(
+              'requests.close'
+            )}
           </button>
         </Card>
       )}
 
+      {/* ------------------------------------------------------------- */}
+      {/* MATCHING RESULTS                                             */}
+      {/* ------------------------------------------------------------- */}
+
       {matchResult && (
         <Card
-          title={`${t('requests.matchingResults')} — ${
-            matchResult.request.patientName
-          } (${matchResult.request.bloodGroup})`}
+          title={`${t(
+            'requests.matchingResults'
+          )} — ${
+            matchResult.request
+              ?.patientName ||
+            ''
+          } (${
+            matchResult.request
+              ?.bloodGroup ||
+            ''
+          })`}
         >
           <div
             className="grid grid-3"
-            style={{ marginBottom: 16 }}
+            style={{
+              marginBottom: 16
+            }}
           >
             <div>
-              <h3>{t('requests.compatibleGroups')}</h3>
+              <h3>
+                {t(
+                  'requests.compatibleGroups'
+                )}
+              </h3>
 
-              {matchResult.searchCriteria.compatibleGroups.map(
-                (g) => (
-                  <span
-                    key={g}
-                    style={{ marginRight: 4 }}
-                  >
-                    <BloodBadge group={g} />
-                  </span>
-                )
-              )}
+              {matchResult
+                .searchCriteria
+                ?.compatibleGroups
+                ?.map(
+                  (group) => (
+                    <span
+                      key={
+                        group
+                      }
+                      style={{
+                        marginRight:
+                          4
+                      }}
+                    >
+                      <BloodBadge
+                        group={
+                          group
+                        }
+                      />
+                    </span>
+                  )
+                )}
             </div>
 
             <div>
-              <h3>{t('requests.scoreWeights')}</h3>
+              <h3>
+                {t(
+                  'requests.scoreWeights'
+                )}
+              </h3>
 
               <div className="muted">
-                {Object.entries(
-                  matchResult.searchCriteria.scoreWeights
-                )
-                  .map(([k, v]) => `${k} ${v}`)
-                  .join(' · ')}
+                {matchResult
+                  .searchCriteria
+                  ?.scoreWeights &&
+                  Object.entries(
+                    matchResult
+                      .searchCriteria
+                      .scoreWeights
+                  )
+                    .map(
+                      ([
+                        key,
+                        value
+                      ]) =>
+                        `${key} ${value}`
+                    )
+                    .join(
+                      ' · '
+                    )}
               </div>
             </div>
 
             <div>
-              <h3>{t('requests.summary')}</h3>
+              <h3>
+                {t(
+                  'requests.summary'
+                )}
+              </h3>
 
               <div className="muted">
-                {matchResult.summary.candidatesFound}{' '}
-                {t('requests.candidates')}
+                {matchResult
+                  .summary
+                  ?.candidatesFound ||
+                  0}{' '}
+
+                {t(
+                  'requests.candidates'
+                )}
+
                 {' · '}
-                {matchResult.summary.eligibleMatches}{' '}
-                {t('requests.eligible')}
+
+                {matchResult
+                  .summary
+                  ?.eligibleMatches ||
+                  0}{' '}
+
+                {t(
+                  'requests.eligible'
+                )}
+
                 {' · '}
-                {matchResult.summary.excludedByEligibility}{' '}
-                {t('requests.excluded')}
+
+                {matchResult
+                  .summary
+                  ?.excludedByEligibility ||
+                  0}{' '}
+
+                {t(
+                  'requests.excluded'
+                )}
               </div>
             </div>
           </div>
 
-          {matchResult.matches.length === 0 ? (
+          {!matchResult.matches ||
+          matchResult.matches.length ===
+            0 ? (
             <Empty>
-              {t('requests.noEligibleDonors', {
-                radius:
-                  matchResult.searchCriteria.radiusKm
-              })}
+              {t(
+                'requests.noEligibleDonors',
+                {
+                  radius:
+                    matchResult
+                      .searchCriteria
+                      ?.radiusKm ||
+                    matchRadius
+                }
+              )}
             </Empty>
           ) : (
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>{t('requests.donor')}</th>
-                  <th>{t('requests.group')}</th>
-                  <th>{t('requests.distance')}</th>
-                  <th>{t('requests.score')}</th>
-                  <th>{t('requests.breakdown')}</th>
+
+                  <th>
+                    {t(
+                      'requests.donor'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'requests.group'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'requests.distance'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'requests.score'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'requests.breakdown'
+                    )}
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
-                {matchResult.matches.map((m) => (
-                  <tr key={m.donorId}>
-                    <td>
-                      <span className="rank">
-                        {m.rank}
-                      </span>
-                    </td>
+                {matchResult.matches.map(
+                  (match) => (
+                    <tr
+                      key={
+                        match.donorId
+                      }
+                    >
+                      <td>
+                        <span className="rank">
+                          {
+                            match.rank
+                          }
+                        </span>
+                      </td>
 
-                    <td>
-                      <b>{m.name}</b>
-                      <br />
-                      <span className="muted">
-                        {m.area} · {m.phone}
-                      </span>
-                    </td>
+                      <td>
+                        <b>
+                          {
+                            match.name
+                          }
+                        </b>
 
-                    <td>
-                      <BloodBadge
-                        group={m.bloodGroup}
-                      />
-                    </td>
+                        {match.publicId && (
+                          <>
+                            {' '}
 
-                    <td>
-                      {m.distanceKm} km
-                    </td>
+                            <span
+                              className="badge neutral"
+                              style={{
+                                fontSize:
+                                  10
+                              }}
+                            >
+                              {
+                                match.publicId
+                              }
+                            </span>
+                          </>
+                        )}
 
-                    <td style={{ minWidth: 90 }}>
-                      <b>{m.score}</b>
+                        <br />
 
-                      <div className="score-bar">
-                        <span
-                          style={{
-                            width: `${m.score}%`
-                          }}
+                        <span className="muted">
+                          {match.area ||
+                            '—'}
+
+                          {' · '}
+
+                          {match.phone ||
+                            'Contact masked'}
+                        </span>
+                      </td>
+
+                      <td>
+                        <BloodBadge
+                          group={
+                            match.bloodGroup
+                          }
                         />
-                      </div>
-                    </td>
+                      </td>
 
-                    <td>
-                      <div className="breakdown">
-                        <span>
-                          {t('requests.compatibility')}{' '}
-                          <b>
-                            {m.breakdown.compatibility}
-                          </b>
-                        </span>
+                      <td>
+                        {match.distanceKm !=
+                        null
+                          ? `${match.distanceKm} km`
+                          : '—'}
+                      </td>
 
-                        <span>
-                          {t('requests.proximity')}{' '}
-                          <b>
-                            {m.breakdown.proximity}
-                          </b>
-                        </span>
+                      <td
+                        style={{
+                          minWidth:
+                            90
+                        }}
+                      >
+                        <b>
+                          {
+                            match.score
+                          }
+                        </b>
 
-                        <span>
-                          {t('requests.recency')}{' '}
-                          <b>
-                            {m.breakdown.recency}
-                          </b>
-                        </span>
+                        <div className="score-bar">
+                          <span
+                            style={{
+                              width: `${Math.min(
+                                Number(
+                                  match.score
+                                ) ||
+                                  0,
+                                100
+                              )}%`
+                            }}
+                          />
+                        </div>
+                      </td>
 
-                        <span>
-                          {t('requests.reliability')}{' '}
-                          <b>
-                            {m.breakdown.reliability}
-                          </b>
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      <td>
+                        <div className="breakdown">
+                          <span>
+                            {t(
+                              'requests.compatibility'
+                            )}{' '}
+
+                            <b>
+                              {match
+                                .breakdown
+                                ?.compatibility ??
+                                '—'}
+                            </b>
+                          </span>
+
+                          <span>
+                            {t(
+                              'requests.proximity'
+                            )}{' '}
+
+                            <b>
+                              {match
+                                .breakdown
+                                ?.proximity ??
+                                '—'}
+                            </b>
+                          </span>
+
+                          <span>
+                            {t(
+                              'requests.recency'
+                            )}{' '}
+
+                            <b>
+                              {match
+                                .breakdown
+                                ?.recency ??
+                                '—'}
+                            </b>
+                          </span>
+
+                          <span>
+                            {t(
+                              'requests.reliability'
+                            )}{' '}
+
+                            <b>
+                              {match
+                                .breakdown
+                                ?.reliability ??
+                                '—'}
+                            </b>
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
           )}
 
           {matchResult.excluded &&
-            matchResult.excluded.length > 0 && (
-              <div style={{ marginTop: 16 }}>
+            matchResult.excluded
+              .length > 0 && (
+              <div
+                style={{
+                  marginTop: 16
+                }}
+              >
                 <button
+                  type="button"
                   className="secondary small"
                   onClick={() =>
-                    setShowExcluded((s) => !s)
+                    setShowExcluded(
+                      (
+                        previous
+                      ) =>
+                        !previous
+                    )
                   }
                 >
                   {showExcluded
-                    ? t('requests.hide')
-                    : t('requests.show')}{' '}
-                  {t('requests.excludedDonors')} (
-                  {matchResult.excluded.length})
+                    ? t(
+                        'requests.hide'
+                      )
+                    : t(
+                        'requests.show'
+                      )}{' '}
+
+                  {t(
+                    'requests.excludedDonors'
+                  )}{' '}
+
+                  (
+                  {
+                    matchResult
+                      .excluded
+                      .length
+                  }
+                  )
                 </button>
 
                 {showExcluded && (
                   <table
-                    style={{ marginTop: 10 }}
+                    style={{
+                      marginTop:
+                        10
+                    }}
                   >
                     <thead>
                       <tr>
-                        <th>{t('requests.donor')}</th>
-                        <th>{t('requests.group')}</th>
-                        <th>{t('requests.score')}</th>
                         <th>
-                          {t('requests.excludedBecause')}
+                          {t(
+                            'requests.donor'
+                          )}
+                        </th>
+
+                        <th>
+                          {t(
+                            'requests.group'
+                          )}
+                        </th>
+
+                        <th>
+                          {t(
+                            'requests.score'
+                          )}
+                        </th>
+
+                        <th>
+                          {t(
+                            'requests.excludedBecause'
+                          )}
                         </th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {matchResult.excluded.map((d) => (
-                        <tr key={d.donorId}>
-                          <td>{d.name}</td>
+                      {matchResult.excluded.map(
+                        (
+                          donor
+                        ) => (
+                          <tr
+                            key={
+                              donor.donorId
+                            }
+                          >
+                            <td>
+                              {
+                                donor.name
+                              }
 
-                          <td>
-                            <BloodBadge
-                              group={d.bloodGroup}
-                            />
-                          </td>
+                              {donor.publicId && (
+                                <>
+                                  {' '}
 
-                          <td className="muted">
-                            {d.score}
-                          </td>
-
-                          <td>
-                            {d.ineligibilityReasons.map(
-                              (reason, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    fontSize: 13
-                                  }}
-                                >
-                                  {reason}
-                                </div>
-                              )
-                            )}
-
-                            <span className="muted">
-                              {t(
-                                'requests.nextEligible'
-                              )}{' '}
-                              {formatDate(
-                                d.nextEligibleDate
+                                  <span
+                                    className="badge neutral"
+                                    style={{
+                                      fontSize:
+                                        10
+                                    }}
+                                  >
+                                    {
+                                      donor.publicId
+                                    }
+                                  </span>
+                                </>
                               )}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+
+                            <td>
+                              <BloodBadge
+                                group={
+                                  donor.bloodGroup
+                                }
+                              />
+                            </td>
+
+                            <td className="muted">
+                              {
+                                donor.score
+                              }
+                            </td>
+
+                            <td>
+                              {donor
+                                .ineligibilityReasons
+                                ?.map(
+                                  (
+                                    reason,
+                                    index
+                                  ) => (
+                                    <div
+                                      key={
+                                        index
+                                      }
+                                      style={{
+                                        fontSize:
+                                          13
+                                      }}
+                                    >
+                                      {
+                                        reason
+                                      }
+                                    </div>
+                                  )
+                                )}
+
+                              <span className="muted">
+                                {t(
+                                  'requests.nextEligible'
+                                )}{' '}
+
+                                {formatDate(
+                                  donor.nextEligibleDate
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                   </table>
                 )}

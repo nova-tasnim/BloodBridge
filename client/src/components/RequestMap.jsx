@@ -21,8 +21,10 @@ function RequestMap() {
   const [userLocation, setUserLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState('');
+  const [shareLocationConsent, setShareLocationConsent] = useState(true);
+  const [statusMessage, setStatusMessage] = useState({});
 
-  const canRespond = user?.role === 'Donor';
+  const canRespond = user?.role === 'Donor' || user?.role === 'Admin';
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -33,7 +35,6 @@ function RequestMap() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-
         setUserLocation([latitude, longitude]);
         fetchNearbyRequests(latitude, longitude);
       },
@@ -52,7 +53,7 @@ function RequestMap() {
       });
       setRequests(result?.data || []);
     } catch (err) {
-      console.error(t('map.failedToLoad'), err);
+      console.error(t('map.failedToLoad', { defaultValue: 'Failed to load map data' }), err);
       await fetchAllRequests();
     } finally {
       setLoading(false);
@@ -65,7 +66,7 @@ function RequestMap() {
       setRequests(result?.data || []);
       setUserLocation([23.8103, 90.4125]);
     } catch (err) {
-      console.error(t('map.failedToLoad'), err);
+      console.error(t('map.failedToLoad', { defaultValue: 'Failed to load map data' }), err);
       setRequests([]);
       setUserLocation([23.8103, 90.4125]);
     } finally {
@@ -73,7 +74,7 @@ function RequestMap() {
     }
   }
 
-  async function handleAction(request) {
+  async function handleRespond(request, decision = 'accepted') {
     if (!request?._id) return;
 
     if (!canRespond) {
@@ -82,23 +83,40 @@ function RequestMap() {
     }
 
     setActionLoadingId(request._id);
+    setStatusMessage((prev) => ({ ...prev, [request._id]: '' }));
 
     try {
-      await requestApi.respond(
-        request._id,
-        user?._id,
-        'accepted',
-        'Accepted via map'
-      );
+      const payload = {
+        decision,
+        reason: decision === 'accepted' ? 'Responded via live map' : 'Unavailable via map',
+        shareLocation: decision === 'accepted' && shareLocationConsent,
+        donorCoordinates: shareLocationConsent && userLocation ? [userLocation[1], userLocation[0]] : undefined
+      };
+
+      await requestApi.respond(request._id, payload);
+
+      setStatusMessage((prev) => ({
+        ...prev,
+        [request._id]: decision === 'accepted'
+          ? t('requests.responseSuccess', { defaultValue: 'Response sent! Requester notified.' })
+          : t('requests.declined', { defaultValue: 'Declined' })
+      }));
+
+      setTimeout(() => {
+        navigate('/requests');
+      }, 1200);
     } catch (err) {
-      console.error(t('map.failedToLoad'), err);
+      setStatusMessage((prev) => ({
+        ...prev,
+        [request._id]: err.response?.data?.message || err.message
+      }));
     } finally {
       setActionLoadingId('');
     }
   }
 
   if (loading || !userLocation) {
-    return <div className="card">{t('map.loading')}</div>;
+    return <div className="card">{t('map.loading', { defaultValue: 'Loading interactive map...' })}</div>;
   }
 
   return (
@@ -130,59 +148,103 @@ function RequestMap() {
             return null;
           }
 
+          const reqId = request._id;
+          const msg = statusMessage[reqId];
+
           return (
             <Marker
-              key={request._id}
+              key={reqId}
               position={[
                 coordinates[1],
                 coordinates[0]
               ]}
             >
               <Popup>
-                <strong>
-                  {request.bloodGroup} {t('map.bloodNeeded')}
-                </strong>
-
-                <br />
-
-                {t('map.units')}: {request.unitsNeeded}
-
-                <br />
-
-                {t('map.urgency')}:{' '}
-                <span
-                  style={{
-                    color:
-                      URGENCY_COLORS[request.urgency] || 'black'
-                  }}
-                >
-                  {t(`common.${request.urgency}`)}
-                </span>
-
-                <br />
-
-                {t('map.location')}: {request.location?.address || '—'}
-
-                {request.isSOS && (
-                  <>
-                    <br />
-                    <strong style={{ color: 'red' }}>
-                      {t('map.sosEmergency')}
+                <div style={{ minWidth: 200, fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <strong>
+                      {request.bloodGroup} {t('map.bloodNeeded', { defaultValue: 'Blood Needed' })}
                     </strong>
-                  </>
-                )}
+                    {request.publicId && (
+                      <span className="badge neutral" style={{ fontSize: 10 }}>
+                        {request.publicId}
+                      </span>
+                    )}
+                  </div>
 
-                <br />
+                  <div>
+                    {t('map.units', { defaultValue: 'Units' })}: <b>{request.unitsNeeded}</b>
+                  </div>
 
-                <button
-                  className="btn-primary"
-                  style={{ marginTop: '8px' }}
-                  type="button"
-                  onClick={() => handleAction(request)}
-                  disabled={actionLoadingId === request._id}
-                >
-                  {canRespond ? t('map.respond') : 'View details'}
-                </button>
+                  <div>
+                    {t('map.urgency', { defaultValue: 'Urgency' })}:{' '}
+                    <span
+                      style={{
+                        fontWeight: 'bold',
+                        color: URGENCY_COLORS[request.urgency] || 'inherit'
+                      }}
+                    >
+                      {t(`common.${request.urgency}`, { defaultValue: request.urgency })}
+                    </span>
+                  </div>
+
+                  <div>
+                    {t('map.location', { defaultValue: 'Location' })}: {request.location?.address || request.hospitalName || '—'}
+                  </div>
+
+                  {request.isSOS && (
+                    <div style={{ color: 'red', fontWeight: 'bold', marginTop: 4 }}>
+                      {t('map.sosEmergency', { defaultValue: 'SOS EMERGENCY' })}
+                    </div>
+                  )}
+
+                  {msg ? (
+                    <div style={{ marginTop: 8, padding: '4px 8px', borderRadius: 4, background: '#e6fffa', color: '#047481', fontWeight: 600 }}>
+                      {msg}
+                    </div>
+                  ) : canRespond ? (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, marginBottom: 8, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={shareLocationConsent}
+                          onChange={(e) => setShareLocationConsent(e.target.checked)}
+                        />
+                        {t('requests.shareApproxLocation', { defaultValue: 'Share approximate area' })}
+                      </label>
+
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="btn-primary small"
+                          type="button"
+                          style={{ flex: 1 }}
+                          onClick={() => handleRespond(request, 'accepted')}
+                          disabled={actionLoadingId === reqId}
+                        >
+                          {actionLoadingId === reqId ? '...' : t('requests.iCanHelp', { defaultValue: 'I Can Help' })}
+                        </button>
+
+                        <button
+                          className="secondary small"
+                          type="button"
+                          onClick={() => handleRespond(request, 'declined')}
+                          disabled={actionLoadingId === reqId}
+                        >
+                          {t('requests.decline', { defaultValue: 'Decline' })}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn-primary small"
+                      style={{ marginTop: 8, width: '100%' }}
+                      type="button"
+                      onClick={() => navigate('/requests')}
+                    >
+                      {t('requests.viewDetails', { defaultValue: 'View details' })}
+                    </button>
+                  )}
+                </div>
               </Popup>
             </Marker>
           );
