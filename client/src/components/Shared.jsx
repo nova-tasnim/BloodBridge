@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from './LanguageToggle';
+import NotificationBell from './NotificationBell';
 import { useAuth } from '../context/AuthContext';
 export function Navbar() {
   const { t } = useTranslation();
@@ -33,6 +34,7 @@ export function Navbar() {
       </nav>
 
       <div className="bb-navbar-actions">
+        <NotificationBell />
         <LanguageToggle />
 
         {isAuthenticated ? (

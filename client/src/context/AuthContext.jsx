@@ -48,12 +48,24 @@ export function AuthProvider({ children }) {
     return body.user;
   }
 
+  // Patches the cached user object (e.g. after becoming a donor) so the
+  // whole app reflects the new role/fields immediately, without requiring
+  // the person to log out and back in.
+  function updateUser(patch) {
+    setUser((prev) => {
+      const next = { ...prev, ...patch };
+      localStorage.setItem(USER_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
   const value = {
     user,
     token,
     isAuthenticated: Boolean(token && user),
     login,
     register,
+    updateUser,
     logout
   };
 
