@@ -1,4 +1,5 @@
 const Campaign = require('../models/Campaign');
+const Donor = require('../models/Donor');
 const {
   createCampaign,
   listCampaigns,
@@ -8,9 +9,20 @@ const {
 } = require('../services/campaignService');
 
 // POST /api/campaigns
+
 exports.createBloodDrive = async (req, res) => {
+  const payload = { ...(req.body || {}) };
+
+  // Authenticated identity resolution:
+  // Campaign.organizer references User._id directly.
+  if (req.user && req.user.role === 'Admin' && payload.organizer) {
+    // Preserve Admin delegation workflow
+  } else if (req.user) {
+    payload.organizer = req.user._id;
+  }
+
   try {
-    const campaign = await createCampaign(req.body || {});
+    const campaign = await createCampaign(payload);
     res.status(201).json({ success: true, data: campaign });
   } catch (err) {
     if (err.statusCode === 400 && err.details) {
@@ -74,11 +86,24 @@ exports.deleteCampaign = async (req, res) => {
 // POST /api/campaigns/:id/register
 exports.registerForCampaign = async (req, res) => {
   const body = req.body || {};
-  if (!body.donorId) {
+  const DonorModel = Donor.Donor || Donor;
+
+  let donorId = body.donorId;
+
+  // Preserve Admin delegation if explicitly provided and authorized
+  if (req.user && req.user.role === 'Admin' && body.donorId) {
+    donorId = body.donorId;
+  } else if (req.user) {
+    // Resolve Donor profile ID from authenticated User._id (Architecture B)
+    const donorProfile = await DonorModel.findOne({ user: req.user._id });
+    donorId = donorProfile ? donorProfile._id : req.user._id;
+  }
+
+  if (!donorId) {
     return res.status(400).json({ success: false, message: 'donorId is required' });
   }
 
-  const result = await registerDonor(req.params.id, body.donorId);
+  const result = await registerDonor(req.params.id, donorId);
   res.status(201).json({ success: true, message: 'Registered successfully', data: result });
 };
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { campaignApi } from '../api/resources';
+import { useAuth } from '../context/AuthContext';
 import {
   PageHeader,
   Card,
@@ -22,7 +23,7 @@ const STATUS_BADGE = {
 
 export default function CampaignsPage() {
   const { t } = useTranslation();
-
+  const { user } = useAuth();
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -71,7 +72,7 @@ export default function CampaignsPage() {
 
     try {
       await campaignApi.create({
-        organizer: form.organizer,
+        ...(user?.role === 'Admin' && form.organizer ? { organizer: form.organizer } : {}),
         title: form.title,
         description: form.description,
         venue: form.venue,
@@ -84,7 +85,6 @@ export default function CampaignsPage() {
         targetUnits: Number(form.targetUnits),
         contactPhone: form.contactPhone
       });
-
       setNotice(t('campaigns.createdSuccess'));
 
       setForm((f) => ({
@@ -101,15 +101,16 @@ export default function CampaignsPage() {
   };
 
   const handleRegister = async (campaignId) => {
-    const donorId = prompt(t('campaigns.donorIdPrompt'));
-
-    if (!donorId) return;
+    if (user?.role !== 'Donor' && user?.role !== 'Admin') {
+      setError(t('campaigns.donorLoginRequired', { defaultValue: 'You must be logged in as a Donor to register for a campaign.' }));
+      return;
+    }
 
     setError('');
     setRegResult(null);
 
     try {
-      const res = await campaignApi.register(campaignId, donorId);
+      const res = await campaignApi.register(campaignId);
 
       setRegResult(res.data);
       setNotice(res.message);
@@ -192,15 +193,25 @@ export default function CampaignsPage() {
 
       <Card title={t('campaigns.createBloodDrive')}>
         <form onSubmit={handleCreate}>
-          <div className="form-row">
+          {user?.role === 'Admin' ? (
             <Field label={t('campaigns.organizerId')}>
               <input
                 value={form.organizer}
                 onChange={set('organizer')}
-                required
+                placeholder="Admin override: enter organizer User ID"
               />
             </Field>
+          ) : (
+            <div style={{ marginBottom: 16, fontSize: 14 }} className="muted">
+              {t('campaigns.organizingAs', { defaultValue: 'Organizing campaign as:' })}{' '}
+              <b>{user?.name}</b>{' '}
+              <span className="badge neutral" style={{ marginLeft: 6 }}>
+                {user?.role}
+              </span>
+            </div>
+          )}
 
+          <div className="form-row">
             <Field label={t('campaigns.titleField')}>
               <input
                 value={form.title}

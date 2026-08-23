@@ -20,7 +20,8 @@ router.route('/')
   .post(authorize('Hospital', 'BloodBank', 'Admin'), createBloodDrive)
   .get(getCampaigns);
 
-router.post('/:id/register', authorize('Donor'), registerForCampaign);
+// Authenticated donor 1-click campaign registration (restricted to Donors)
+router.post('/:id/register', authorize('Donor', 'Admin'), registerForCampaign);
 router.get('/:id/registrations', authorize('Hospital', 'BloodBank', 'Admin'), getRegistrations);
 
 router.route('/:id')
