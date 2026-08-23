@@ -27,7 +27,6 @@ const bloodRequestRoutes = require('./routes/bloodRequestRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const app = express();
 const assistantRoutes = require('./routes/assistantRoutes');
-const bloodDriveRoutes = require('./routes/bloodDriveRoutes');
 const mapRoutes = require('./routes/mapRoutes');
 const queueRoutes = require('./routes/queueRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
@@ -46,7 +45,7 @@ app.get('/', (req, res) => res.send('BloodBridge API is running'));
 app.use('/api/auth', authRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/blood-drives', bloodDriveRoutes);
+
 app.use('/api/badges', badgeRoutes);
 app.use('/api/donors', donorRoutes);
 app.use('/api/donations', donationRoutes);
