@@ -95,6 +95,10 @@
     ]
   },
   "donations": {
+    "loggingAs": "Logging donation for:",
+    "myHistory": "Your Donation History",
+    "personalHistoryNote": "Showing verified donation records associated with your account.",
+    "refresh": "Refresh History",
     "title": "Donation History",
     "subtitle": "Log donations and view a donor's record. Logging a donation updates the donor's next-eligible date automatically.",
     "logDonation": "Log a Donation",
@@ -118,6 +122,9 @@
     "units": "Units"
   },
   "requests": {
+    "creatingAs": "Posting request as:",
+    "respondingAs": "Responding as:",
+    "donorIdRequired": "Donor identity could not be verified",
     "sosToggle": "Mark as Emergency SOS",
     "sosActive": "🚨 Emergency SOS Active",
     "sosNote": "This request will be flagged as highest priority and matched immediately.",
@@ -201,6 +208,9 @@
     "requiredDonorId": "Donor ID is required to respond."
   },
   "inventory": {
+    "myFacility": "Facility Inventory",
+    "facilitySession": "Managing real-time stock for:",
+    "refresh": "Refresh Stock",
     "title": "Blood Inventory",
     "subtitle": "Manage stock by group and batch, with automatic low-stock and expiry alerts.",
     "selectBloodBank": "Select Blood Bank",
@@ -285,6 +295,8 @@
     "breakdownUnits": "units"
   },
   "campaigns": {
+    "organizingAs": "Organizing campaign as:",
+    "donorLoginRequired": "You must be logged in as a Donor to register for a campaign.",
     "title": "Blood Drives",
     "subtitle": "Create donation campaigns and register donors. Registration reports each donor's current eligibility.",
     "createdSuccess": "Campaign created.",
@@ -465,9 +477,35 @@
   "operatingHours": "Operating Hours",
   "contactPerson": "Contact Person"
   },
+  "feedback": {
+  "requestTitle": "Feedback for this fulfilled request",
+  "requestSubtitle": "Tell us how the completed blood request experience went.",
+  "donationTitle": "Feedback for this verified donation",
+  "donationSubtitle": "Share your experience with this completed donation.",
+  "rating": "Rating",
+  "comment": "Comment",
+  "submit": "Submit feedback",
+  "submitting": "Submitting...",
+  "success": "Thank you. Your feedback has been submitted successfully.",
+  "alreadySubmitted": "You have already submitted feedback for this item.",
+  "noReviews": "No feedback has been submitted yet.",
+  "noRating": "No rating yet",
+  "reviewCount_one": "{{count}} review",
+  "reviewCount_other": "{{count}} reviews",
+  "user": "User",
+  "actions": "Actions",
+  "reviewDonation": "Review donation",
+  "awaitingVerification": "Awaiting verification",
+  "close": "Close"
+  },
   "authLayout": {
   "headline": "Every second counts when someone needs blood.",
   "tagline": "BloodBridge connects verified donors with patients, hospitals, and blood banks in real time — so the right blood reaches the right person, fast.",
   "quote": "\u201cOne donation can help save the lives of up to three people in need.\u201d"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "You're all caught up — no notifications yet."
   }
 }
