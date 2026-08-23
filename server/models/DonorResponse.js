@@ -20,12 +20,22 @@ const donorResponseSchema = new mongoose.Schema(
     matchScore: { type: Number, default: 0 },
     respondedAt: { type: Date, default: null },
     declineReason: { type: String, trim: true },
-    notes: { type: String, trim: true }
+    notes: { type: String, trim: true },
+    // Phase 2B: Consent-based approximate location sharing
+    shareLocation: { type: Boolean, default: false },
+    donorCoordinates: {
+      type: [Number], // [longitude, latitude] approximate coordinates
+      default: undefined
+    },
+    donorArea: { type: String, trim: true }
   },
   { timestamps: true }
 );
 
-// A donor holds one response per request
+// A donor holds one response record per request to prevent duplicate responses
 donorResponseSchema.index({ bloodRequest: 1, donor: 1 }, { unique: true });
 
-module.exports = { DonorResponse: mongoose.model('DonorResponse', donorResponseSchema), RESPONSE_STATUSES };
+module.exports = {
+  DonorResponse: mongoose.model('DonorResponse', donorResponseSchema),
+  RESPONSE_STATUSES
+};

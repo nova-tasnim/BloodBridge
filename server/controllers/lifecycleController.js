@@ -1,4 +1,8 @@
 const {
+  BloodRequest
+} = require('../models/BloodRequest');
+
+const {
   transitionStatus,
   respondToRequest,
   fulfilRequest,
@@ -8,114 +12,468 @@ const {
   TRANSITIONS
 } = require('../services/requestLifecycleService');
 
-// PATCH /api/requests/:id/status
-exports.changeStatus = async (req, res) => {
-  const body = req.body || {};
-  if (!body.status) {
-    return res.status(400).json({ success: false, message: 'status is required' });
-  }
+/*
+|--------------------------------------------------------------------------
+| Helpers
+|--------------------------------------------------------------------------
+*/
 
-  const result = await transitionStatus(req.params.id, body.status, body);
-  res.json({
-    success: true,
-    message: `Status changed from "${result.previousStatus}" to "${result.currentStatus}"`,
-    data: result
-  });
-};
-
-// POST /api/requests/:id/respond
-exports.respond = async (req, res) => {
-  const body = req.body || {};
-  if (!body.decision) {
-    return res.status(400).json({
-      success: false,
-      message: 'decision ("accepted" or "declined") is required'
-    });
-  }
-
-  const donorId = req.user?._id || body.donorId;
-  if (!donorId) {
-    return res.status(400).json({
-      success: false,
-      message: 'donorId is required'
-    });
-  }
-
-  const result = await respondToRequest(
-    req.params.id,
-    donorId,
-    body.decision,
-    body
+function isStaff(user) {
+  return Boolean(
+    user &&
+    [
+      'Hospital',
+      'BloodBank',
+      'Admin'
+    ].includes(
+      user.role
+    )
   );
+}
 
-  res.json({
-    success: true,
-    message: `${result.donorName} ${result.decision} the request`,
-    data: result
-  });
-};
+/*
+|--------------------------------------------------------------------------
+| PATCH /api/requests/:id/status
+|--------------------------------------------------------------------------
+*/
 
-// POST /api/requests/:id/fulfil
-exports.fulfil = async (req, res) => {
-  const body = req.body || {};
-  if (!body.donorId) {
-    return res.status(400).json({ success: false, message: 'donorId is required' });
-  }
+exports.changeStatus =
+  async (req, res) => {
+    try {
+      const body =
+        req.body || {};
 
-  const result = await fulfilRequest(req.params.id, body.donorId, body);
+      if (!body.status) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message:
+              'status is required'
+          });
+      }
 
-  res.json({
-    success: true,
-    message: result.fullyFulfilled
-      ? 'Request fully fulfilled'
-      : `${result.unitsRemaining} unit(s) still required`,
-    data: result
-  });
-};
+      const request =
+        req.bloodRequest ||
+        await BloodRequest.findById(
+          req.params.id
+        );
 
-// POST /api/requests/:id/invite
-exports.invite = async (req, res) => {
-  const body = req.body || {};
-  const created = await inviteMatchedDonors(req.params.id, body.matches || []);
-  res.status(201).json({
-    success: true,
-    message: `${created.length} donor(s) invited`,
-    data: created
-  });
-};
+      if (!request) {
+        return res
+          .status(404)
+          .json({
+            success: false,
+            message:
+              'Blood request not found'
+          });
+      }
 
-// GET /api/requests/:id/timeline
-exports.getTimeline = async (req, res) => {
-  const timeline = await getRequestTimeline(req.params.id);
-  res.json({ success: true, data: timeline });
-};
+      const owner =
+        String(
+          request.requester
+        ) ===
+        String(
+          req.user._id
+        );
 
-// GET /api/requests/lifecycle/transitions — the state machine, exposed
-exports.getTransitionMap = async (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      transitions: TRANSITIONS,
-      description:
-        'Each key is a request status; the array lists the statuses it may move to. ' +
-        'Empty arrays denote terminal states.'
+      const staff =
+        isStaff(
+          req.user
+        );
+
+      /*
+       * Fulfillment may NEVER be manually selected.
+       */
+      if (
+        body.status ===
+        'fulfilled'
+      ) {
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message:
+              'Request fulfillment must be confirmed through the verified fulfillment action.'
+          });
+      }
+
+      /*
+       * Ordinary request owner may only cancel their own request.
+       */
+      if (
+        owner &&
+        !staff &&
+        body.status !==
+          'cancelled'
+      ) {
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message:
+              'Request owners may only cancel their own request. Other lifecycle actions require authorized staff.'
+          });
+      }
+
+      /*
+       * Non-owner, non-staff should never reach this point,
+       * but keep controller protection too.
+       */
+      if (
+        !owner &&
+        !staff
+      ) {
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message:
+              'You are not authorized to change this request status.'
+          });
+      }
+
+      const result =
+        await transitionStatus(
+          req.params.id,
+          body.status,
+          body
+        );
+
+      return res.json({
+        success: true,
+
+        message:
+          `Status changed from "${result.previousStatus}" to "${result.currentStatus}"`,
+
+        data:
+          result
+      });
+    } catch (err) {
+      return res
+        .status(
+          err.statusCode ||
+          400
+        )
+        .json({
+          success: false,
+          message:
+            err.message
+        });
     }
-  });
-};
+  };
 
-// GET /api/requests/:id/allowed-transitions
-exports.getAllowed = async (req, res) => {
-  const { BloodRequest } = require('../models/BloodRequest');
-  const request = await BloodRequest.findById(req.params.id);
-  if (!request) {
-    return res.status(404).json({ success: false, message: 'Blood request not found' });
-  }
+/*
+|--------------------------------------------------------------------------
+| POST /api/requests/:id/respond
+|--------------------------------------------------------------------------
+|
+| Route already requires donor capability.
+|
+| Therefore:
+|
+| Nova ✅
+| Kader ✅
+| Patient ❌
+| Hospital ❌
+| BloodBank ❌
+| Admin ❌
+|--------------------------------------------------------------------------
+*/
 
-  res.json({
-    success: true,
-    data: {
-      currentStatus: request.status,
-      allowedNext: getAllowedTransitions(request.status)
+exports.respond =
+  async (req, res) => {
+    try {
+      const body =
+        req.body || {};
+
+      if (
+        !body.decision ||
+        ![
+          'accepted',
+          'declined'
+        ].includes(
+          body.decision
+        )
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              'decision must be either "accepted" or "declined"'
+          });
+      }
+
+      /*
+       * DO NOT accept body.donorId.
+       *
+       * A donor response always belongs to the authenticated donor.
+       */
+      const result =
+        await respondToRequest(
+          req.params.id,
+          req.user._id,
+          body.decision,
+          {
+            reason:
+              body.reason ||
+              '',
+
+            shareLocation:
+              Boolean(
+                body.shareLocation
+              ),
+
+            donorCoordinates:
+              body.donorCoordinates,
+
+            donorArea:
+              body.donorArea
+          }
+        );
+
+      return res.json({
+        success: true,
+
+        message:
+          `${
+            result.donorName ||
+            'Donor'
+          } ${
+            result.decision
+          } the request`,
+
+        data:
+          result
+      });
+    } catch (err) {
+      return res
+        .status(
+          err.statusCode ||
+          400
+        )
+        .json({
+          success: false,
+          message:
+            err.message
+        });
     }
-  });
-};
+  };
+
+/*
+|--------------------------------------------------------------------------
+| POST /api/requests/:id/fulfil
+|--------------------------------------------------------------------------
+|
+| Route allows only:
+|
+| Hospital
+| BloodBank
+| Admin
+|--------------------------------------------------------------------------
+*/
+
+exports.fulfil =
+  async (req, res) => {
+    try {
+      const body =
+        req.body || {};
+
+      if (!body.donorId) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              'donorId is required to confirm fulfillment'
+          });
+      }
+
+      const options = {
+        ...body,
+
+        verifiedBy:
+          req.user._id
+      };
+
+      const result =
+        await fulfilRequest(
+          req.params.id,
+          body.donorId,
+          options
+        );
+
+      return res.json({
+        success: true,
+
+        message:
+          result.fullyFulfilled
+            ? 'Request fully fulfilled and verified donation recorded'
+            : `${result.unitsRemaining} unit(s) still required`,
+
+        data:
+          result
+      });
+    } catch (err) {
+      return res
+        .status(
+          err.statusCode ||
+          400
+        )
+        .json({
+          success: false,
+          message:
+            err.message
+        });
+    }
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Invite
+|--------------------------------------------------------------------------
+*/
+
+exports.invite =
+  async (req, res) => {
+    try {
+      const body =
+        req.body || {};
+
+      const created =
+        await inviteMatchedDonors(
+          req.params.id,
+          body.matches ||
+            []
+        );
+
+      return res
+        .status(201)
+        .json({
+          success: true,
+
+          message:
+            `${created.length} donor(s) invited`,
+
+          data:
+            created
+        });
+    } catch (err) {
+      return res
+        .status(
+          err.statusCode ||
+          400
+        )
+        .json({
+          success: false,
+          message:
+            err.message
+        });
+    }
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Timeline
+|--------------------------------------------------------------------------
+*/
+
+exports.getTimeline =
+  async (req, res) => {
+    try {
+      const timeline =
+        await getRequestTimeline(
+          req.params.id
+        );
+
+      return res.json({
+        success: true,
+        data:
+          timeline
+      });
+    } catch (err) {
+      return res
+        .status(
+          err.statusCode ||
+          404
+        )
+        .json({
+          success: false,
+          message:
+            err.message
+        });
+    }
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Transition map
+|--------------------------------------------------------------------------
+*/
+
+exports.getTransitionMap =
+  async (req, res) => {
+    return res.json({
+      success: true,
+
+      data: {
+        transitions:
+          TRANSITIONS,
+
+        description:
+          'Generic state transitions. Fulfillment is only completed through verified donation fulfillment.'
+      }
+    });
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Allowed transitions
+|--------------------------------------------------------------------------
+*/
+
+exports.getAllowed =
+  async (req, res) => {
+    try {
+      const request =
+        await BloodRequest.findById(
+          req.params.id
+        );
+
+      if (!request) {
+        return res
+          .status(404)
+          .json({
+            success: false,
+
+            message:
+              'Blood request not found'
+          });
+      }
+
+      return res.json({
+        success: true,
+
+        data: {
+          currentStatus:
+            request.status,
+
+          allowedNext:
+            getAllowedTransitions(
+              request.status
+            )
+        }
+      });
+    } catch (err) {
+      return res
+        .status(500)
+        .json({
+          success: false,
+          message:
+            err.message
+        });
+    }
+  };

@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { BLOOD_GROUPS } = require('../config/constants');
 
@@ -23,6 +24,13 @@ const pointSchema = new mongoose.Schema(
 
 const bloodRequestSchema = new mongoose.Schema(
   {
+    // Phase 2B Application-Level Public Identifier
+    publicId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      default: () => 'REQ-' + crypto.randomBytes(3).toString('hex').toUpperCase()
+    },
     requester: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -58,6 +66,14 @@ const bloodRequestSchema = new mongoose.Schema(
 
 bloodRequestSchema.index({ location: '2dsphere' });
 bloodRequestSchema.index({ status: 1, urgency: 1, createdAt: 1 });
+
+// Fallback generator to ensure a public ID exists before saving
+bloodRequestSchema.pre('save', function () {
+  if (!this.publicId) {
+    this.publicId =
+      'REQ-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+  }
+});
 
 // Units still outstanding
 bloodRequestSchema.virtual('unitsRemaining').get(function () {
