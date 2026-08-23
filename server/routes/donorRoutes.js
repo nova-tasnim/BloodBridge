@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
+
 const {
   createDonor,
+  becomeDonor,
   getDonors,
   getDonorById,
   updateDonor,
@@ -9,22 +11,93 @@ const {
   getDonorEligibility,
   toggleAvailability
 } = require('../controllers/donorController');
-const { protect, authorize, ownerOrRoles } = require('../middleware/auth');
+
+const {
+  protect,
+  authorize,
+  donorOwnerOrRoles
+} = require('../middleware/auth');
 
 router.use(protect);
 
-// Real donor accounts are created via /api/auth/register now.
-// This direct-create endpoint stays available for Admin bulk-add only.
-router.route('/')
-  .post(authorize('Admin'), createDonor)
+/*
+|--------------------------------------------------------------------------
+| Patient → donor capability
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  '/become-donor',
+  authorize('Patient'),
+  becomeDonor
+);
+
+/*
+|--------------------------------------------------------------------------
+| Directory
+|--------------------------------------------------------------------------
+*/
+
+router
+  .route('/')
+  .post(
+    authorize('Admin'),
+    createDonor
+  )
   .get(getDonors);
 
-router.get('/:id/eligibility', ownerOrRoles('id', 'Hospital', 'BloodBank', 'Admin'), getDonorEligibility);
-router.patch('/:id/availability', ownerOrRoles('id', 'Admin'), toggleAvailability);
+/*
+|--------------------------------------------------------------------------
+| Eligibility
+|--------------------------------------------------------------------------
+*/
 
-router.route('/:id')
+router.get(
+  '/:id/eligibility',
+
+  donorOwnerOrRoles(
+    'id',
+    'Hospital',
+    'BloodBank',
+    'Admin'
+  ),
+
+  getDonorEligibility
+);
+
+/*
+|--------------------------------------------------------------------------
+| Availability
+|--------------------------------------------------------------------------
+*/
+
+router.patch(
+  '/:id/availability',
+
+  donorOwnerOrRoles(
+    'id',
+    'Admin'
+  ),
+
+  toggleAvailability
+);
+
+/*
+|--------------------------------------------------------------------------
+| Donor detail
+|--------------------------------------------------------------------------
+*/
+
+router
+  .route('/:id')
   .get(getDonorById)
-  .put(ownerOrRoles('id', 'Admin'), updateDonor)
-  .delete(ownerOrRoles('id', 'Admin'), deleteDonor);
+  .put(
+    authorize('Admin'),
+    updateDonor
+  )
+  .delete(
+    authorize('Admin'),
+    deleteDonor
+  );
 
 module.exports = router;
