@@ -1,20 +1,83 @@
-const express = require('express');
-const router = express.Router();
+const express =
+  require('express');
+
+const router =
+  express.Router();
+
 const {
   createDonation,
+  getMyDonationHistory,
   getDonorHistory,
   getDonationById
-} = require('../controllers/donationController');
-const { protect, authorize, ownerOrRoles } = require('../middleware/auth');
+} =
+  require('../controllers/donationController');
+
+const {
+  protect,
+  requireDonorCapability
+} =
+  require('../middleware/auth');
+
+/*
+|--------------------------------------------------------------------------
+| All donation endpoints require authentication
+|--------------------------------------------------------------------------
+*/
 
 router.use(protect);
 
-// Donation records are logged by the facility that received the
-// donation, not self-reported by the donor — keeps donation history
-// (and the badges/leaderboard built on top of it) trustworthy.
-router.post('/', authorize('Hospital', 'BloodBank', 'Admin'), createDonation);
+/*
+|--------------------------------------------------------------------------
+| Own donation history
+|--------------------------------------------------------------------------
+|
+| Native Donor
+| Patient + donorProfile
+|--------------------------------------------------------------------------
+*/
 
-router.get('/donor/:donorId', ownerOrRoles('donorId', 'Hospital', 'BloodBank', 'Admin'), getDonorHistory);
-router.get('/:id', getDonationById);
+router.get(
+  '/me',
+  requireDonorCapability,
+  getMyDonationHistory
+);
 
-module.exports = router;
+/*
+|--------------------------------------------------------------------------
+| Record donation
+|--------------------------------------------------------------------------
+|
+| Detailed capability enforcement happens inside controller because
+| different users have different logging behavior.
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  '/',
+  createDonation
+);
+
+/*
+|--------------------------------------------------------------------------
+| Lookup donor history
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  '/donor/:donorId',
+  getDonorHistory
+);
+
+/*
+|--------------------------------------------------------------------------
+| Single record
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  '/:id',
+  getDonationById
+);
+
+module.exports =
+  router;

@@ -1,67 +1,228 @@
-const DonationRecord = require('../models/DonationRecord');
-const Donor = require('../models/Donor');
+const DonationRecord =
+  require('../models/DonationRecord');
 
-/**
- * Records a donation and updates the donor's aggregate fields.
- * Single write path used by this feature and, later, by the
- * request lifecycle when a request is marked fulfilled.
- */
+const {
+  resolveDonor,
+  normalizeDonor,
+  registerDonationAggregate
+} = require('./donorIdentityService');
+
+/*
+|--------------------------------------------------------------------------
+| Record donation
+|--------------------------------------------------------------------------
+*/
+
 async function recordDonation({
   donorId,
+
   bloodRequestId = null,
+
   bloodBankId = null,
+
   donationDate = new Date(),
+
   unitsDonated = 1,
+
   locationName = '',
-  notes = ''
+
+  notes = '',
+
+  verifiedBy = null
 }) {
-  const donor = await Donor.findById(donorId);
+  /*
+  |--------------------------------------------------------------------------
+  | Universal donor resolution
+  |--------------------------------------------------------------------------
+  */
+
+  const donor =
+    await resolveDonor(
+      donorId
+    );
+
   if (!donor) {
-    const err = new Error('Donor not found');
-    err.statusCode = 404;
+    const err =
+      new Error(
+        'Donor not found'
+      );
+
+    err.statusCode =
+      404;
+
     throw err;
   }
 
-  const record = await DonationRecord.create({
-    donor: donor._id,
-    bloodRequest: bloodRequestId,
-    bloodBank: bloodBankId,
-    bloodGroup: donor.bloodGroup,
-    donationDate,
-    unitsDonated,
-    locationName,
-    notes
-  });
+  const donorData =
+    normalizeDonor(
+      donor
+    );
 
-  // Keep denormalised donor fields in sync — the eligibility
-  // engine and reminder system both read lastDonationDate.
-  const isMostRecent =
-    !donor.lastDonationDate ||
-    new Date(donationDate) > new Date(donor.lastDonationDate);
+  /*
+  |--------------------------------------------------------------------------
+  | Idempotency
+  |--------------------------------------------------------------------------
+  */
 
-  if (isMostRecent) donor.lastDonationDate = donationDate;
-  donor.totalDonations += 1;
-  await donor.save();
+  if (bloodRequestId) {
+    const existing =
+      await DonationRecord.findOne({
+        bloodRequest:
+          bloodRequestId,
+
+        donor:
+          donor._id
+      });
+
+    if (existing) {
+      return existing;
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Create record
+  |--------------------------------------------------------------------------
+  |
+  | DonationRecord.donor stores User._id for BOTH donor types.
+  |--------------------------------------------------------------------------
+  */
+
+  const record =
+    await DonationRecord.create({
+      donor:
+        donor._id,
+
+      bloodRequest:
+        bloodRequestId,
+
+      bloodBank:
+        bloodBankId,
+
+      bloodGroup:
+        donorData.bloodGroup,
+
+      donationDate,
+
+      unitsDonated:
+        Number(unitsDonated) || 1,
+
+      locationName,
+
+      notes,
+
+      verifiedBy
+    });
+
+  /*
+  |--------------------------------------------------------------------------
+  | Update donor aggregates
+  |--------------------------------------------------------------------------
+  |
+  | Native Donor:
+  | top-level fields
+  |
+  | Patient donor:
+  | donorProfile fields
+  |--------------------------------------------------------------------------
+  */
+
+  await registerDonationAggregate(
+    donor,
+    donationDate
+  );
 
   return record;
 }
 
-async function getDonationHistory(donorId) {
-  return DonationRecord.find({ donor: donorId }).sort({ donationDate: -1 });
+/*
+|--------------------------------------------------------------------------
+| Donation history
+|--------------------------------------------------------------------------
+*/
+
+async function getDonationHistory(
+  donorId
+) {
+  return DonationRecord
+    .find({
+      donor: donorId
+    })
+
+    .populate(
+      'bloodRequest',
+      'publicId patientName hospitalName'
+    )
+
+    .populate(
+      'bloodBank',
+      'name location'
+    )
+
+    .populate(
+      'verifiedBy',
+      'name role'
+    )
+
+    .sort({
+      donationDate: -1
+    });
 }
 
-async function getDonationStats(donorId) {
-  const records = await DonationRecord.find({ donor: donorId });
-  const totalUnits = records.reduce((sum, r) => sum + r.unitsDonated, 0);
-  const lastDonation = records.length
-    ? records.reduce((a, b) => (a.donationDate > b.donationDate ? a : b)).donationDate
-    : null;
+/*
+|--------------------------------------------------------------------------
+| Donation statistics
+|--------------------------------------------------------------------------
+*/
+
+async function getDonationStats(
+  donorId
+) {
+  const records =
+    await DonationRecord.find({
+      donor: donorId
+    });
+
+  const totalUnits =
+    records.reduce(
+      (sum, record) =>
+        sum +
+        (
+          Number(
+            record.unitsDonated
+          ) || 0
+        ),
+      0
+    );
+
+  const lastDonation =
+    records.length
+      ? records.reduce(
+          (a, b) =>
+            new Date(
+              a.donationDate
+            ) >
+            new Date(
+              b.donationDate
+            )
+              ? a
+              : b
+        ).donationDate
+      : null;
 
   return {
-    totalDonations: records.length,
+    totalDonations:
+      records.length,
+
     totalUnits,
+
     lastDonation
   };
 }
 
-module.exports = { recordDonation, getDonationHistory, getDonationStats };
+module.exports = {
+  recordDonation,
+  getDonationHistory,
+  getDonationStats,
+  resolveDonor
+};
