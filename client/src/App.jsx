@@ -18,6 +18,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import MapPage from './pages/MapPage';
 import QueuePage from './pages/QueuePage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import ReminderPage from './pages/ReminderPage';
 
 const AUTH_ROUTES = ['/login', '/register'];
 
@@ -136,6 +137,16 @@ function AnimatedRoutes() {
             <ProtectedRoute>
               <PageTransition>
                 <LeaderboardPage />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reminders"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <ReminderPage />
               </PageTransition>
             </ProtectedRoute>
           }

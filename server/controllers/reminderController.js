@@ -12,19 +12,15 @@ const {
 } =
   require('../services/eligibilityService');
 
+const {
+  notifyUser
+} =
+  require('../services/notificationService');
+
+
 /*
 |--------------------------------------------------------------------------
-| Resolve + normalize donor
-|--------------------------------------------------------------------------
-|
-| Reminder logic should never care whether the donor is:
-|
-| role = Donor
-|
-| OR
-|
-| role = Patient + donorProfile
-|
+| Resolve native Donor OR Patient-donor
 |--------------------------------------------------------------------------
 */
 
@@ -40,25 +36,28 @@ async function getResolvedDonor(
     return null;
   }
 
+  const donor =
+    normalizeDonor(user);
+
+  if (!donor) {
+    return null;
+  }
+
   return {
     user,
-
-    donor:
-      normalizeDonor(user)
+    donor
   };
 }
 
+
 /*
 |--------------------------------------------------------------------------
-| GET next eligibility
+| GET /api/reminders/donor/:donorId/next-eligible
 |--------------------------------------------------------------------------
 */
 
 exports.getNextEligibleDate =
-  async (
-    req,
-    res
-  ) => {
+  async (req, res) => {
     try {
       const resolved =
         await getResolvedDonor(
@@ -69,16 +68,16 @@ exports.getNextEligibleDate =
         return res
           .status(404)
           .json({
-            success:
-              false,
-
+            success: false,
             message:
               'Donor not found'
           });
       }
 
       /*
-       * Single source of truth.
+       * IMPORTANT:
+       * eligibilityService is the single
+       * source of truth.
        */
       const eligibility =
         checkEligibility(
@@ -86,62 +85,69 @@ exports.getNextEligibleDate =
         );
 
       return res.json({
-        success:
-          true,
+        success: true,
 
         donor: {
           _id:
             resolved.user._id,
 
           publicId:
-            resolved.donor.publicId,
+            resolved.donor
+              .publicId,
 
           name:
-            resolved.donor.name,
+            resolved.donor
+              .name,
 
           donorType:
-            resolved.donor.donorType
+            resolved.donor
+              .donorType
         },
 
         nextEligibleDate:
-          eligibility.nextEligibleDate,
+          eligibility
+            .nextEligibleDate,
 
         isEligibleNow:
-          eligibility.eligible,
+          eligibility
+            .eligible,
 
         reasons:
-          eligibility.reasons,
+          eligibility
+            .reasons,
 
         requiredIntervalDays:
-          eligibility.requiredIntervalDays,
+          eligibility
+            .requiredIntervalDays,
 
         daysSinceLastDonation:
-          eligibility.daysSinceLastDonation
+          eligibility
+            .daysSinceLastDonation
       });
     } catch (err) {
       return res
         .status(500)
         .json({
-          success:
-            false,
-
+          success: false,
           message:
             err.message
         });
     }
   };
 
+
 /*
 |--------------------------------------------------------------------------
-| Create / refresh reminder
+| POST /api/reminders/donor/:donorId
 |--------------------------------------------------------------------------
+|
+| Creates or refreshes the reminder stored
+| in MongoDB.
+|
 */
 
 exports.createReminder =
-  async (
-    req,
-    res
-  ) => {
+  async (req, res) => {
     try {
       const resolved =
         await getResolvedDonor(
@@ -152,9 +158,7 @@ exports.createReminder =
         return res
           .status(404)
           .json({
-            success:
-              false,
-
+            success: false,
             message:
               'Donor not found'
           });
@@ -166,11 +170,8 @@ exports.createReminder =
         );
 
       /*
-       * No previous approved donation means there is no future
-       * donation-interval date to remind the donor about.
-       *
-       * They may already be eligible, subject to the other
-       * eligibility rules.
+       * If there is no future date,
+       * there is nothing to remind about.
        */
       if (
         !eligibility
@@ -179,8 +180,7 @@ exports.createReminder =
         return res
           .status(400)
           .json({
-            success:
-              false,
+            success: false,
 
             message:
               'This donor does not currently have a future donation eligibility date.',
@@ -213,12 +213,8 @@ exports.createReminder =
             },
 
             {
-              upsert:
-                true,
-
-              new:
-                true,
-
+              upsert: true,
+              new: true,
               runValidators:
                 true
             }
@@ -227,50 +223,117 @@ exports.createReminder =
       return res
         .status(201)
         .json({
-          success:
-            true,
-
+          success: true,
           reminder,
-
           eligibility
         });
     } catch (err) {
       return res
         .status(500)
         .json({
-          success:
-            false,
-
+          success: false,
           message:
             err.message
         });
     }
   };
 
+
 /*
 |--------------------------------------------------------------------------
-| GET reminders due within the next 7 days
+| GET /api/reminders/donor/:donorId
 |--------------------------------------------------------------------------
 |
-| Hospital, BloodBank and Admin can inspect upcoming reminders.
+| Reads the ACTUAL saved Reminder document
+| from MongoDB.
 |
+*/
+
+exports.getReminderForDonor =
+  async (req, res) => {
+    try {
+      const resolved =
+        await getResolvedDonor(
+          req.params.donorId
+        );
+
+      if (!resolved) {
+        return res
+          .status(404)
+          .json({
+            success: false,
+            message:
+              'Donor not found'
+          });
+      }
+
+      const reminder =
+        await Reminder
+          .findOne({
+            donorId:
+              resolved.user._id
+          });
+
+      return res.json({
+        success: true,
+
+        donor: {
+          _id:
+            resolved.user._id,
+
+          publicId:
+            resolved.donor
+              .publicId,
+
+          name:
+            resolved.donor
+              .name,
+
+          donorType:
+            resolved.donor
+              .donorType
+        },
+
+        reminder:
+          reminder || null
+      });
+    } catch (err) {
+      return res
+        .status(500)
+        .json({
+          success: false,
+          message:
+            err.message
+        });
+    }
+  };
+
+
+/*
 |--------------------------------------------------------------------------
+| GET /api/reminders/due
+|--------------------------------------------------------------------------
+|
+| Hospital / BloodBank / Admin
+|
+| Returns unsent reminders due within
+| the next seven days.
+|
 */
 
 exports.getDueReminders =
-  async (
-    req,
-    res
-  ) => {
+  async (req, res) => {
     try {
+      const now =
+        new Date();
+
       const sevenDaysFromNow =
         new Date();
 
       sevenDaysFromNow
         .setDate(
           sevenDaysFromNow
-            .getDate() +
-            7
+            .getDate() + 7
         );
 
       const reminders =
@@ -302,21 +365,26 @@ exports.getDueReminders =
         const user =
           reminder.donorId;
 
+        if (!user) {
+          continue;
+        }
+
         const donor =
           normalizeDonor(
             user
           );
 
         /*
-         * Ignore deleted, inactive or no-longer donor-capable users.
+         * Deleted / inactive /
+         * non-donor-capable account.
          */
         if (!donor) {
           continue;
         }
 
         /*
-         * Re-check using the real eligibility engine instead of trusting
-         * an old hardcoded reminder calculation.
+         * Re-check current eligibility.
+         * Do not trust an old calculation.
          */
         const eligibility =
           checkEligibility(
@@ -326,6 +394,24 @@ exports.getDueReminders =
         if (
           !eligibility
             .nextEligibleDate
+        ) {
+          continue;
+        }
+
+        const currentNextDate =
+          new Date(
+            eligibility
+              .nextEligibleDate
+          );
+
+        /*
+         * If eligibility has changed and
+         * moved outside the 7-day window,
+         * don't show it as due.
+         */
+        if (
+          currentNextDate >
+          sevenDaysFromNow
         ) {
           continue;
         }
@@ -362,17 +448,25 @@ exports.getDueReminders =
               .nextEligibleDate,
 
           reminderSent:
-            reminder.reminderSent,
+            reminder
+              .reminderSent,
 
           reminderDate:
-            reminder.reminderDate,
+            reminder
+              .reminderDate,
+
+          overdue:
+            currentNextDate <
+            now,
 
           eligibility: {
             eligible:
-              eligibility.eligible,
+              eligibility
+                .eligible,
 
             reasons:
-              eligibility.reasons,
+              eligibility
+                .reasons,
 
             requiredIntervalDays:
               eligibility
@@ -386,8 +480,7 @@ exports.getDueReminders =
       }
 
       return res.json({
-        success:
-          true,
+        success: true,
 
         count:
           dueReminders.length,
@@ -399,72 +492,147 @@ exports.getDueReminders =
       return res
         .status(500)
         .json({
-          success:
-            false,
-
+          success: false,
           message:
             err.message
         });
     }
   };
 
+
 /*
 |--------------------------------------------------------------------------
-| Mark reminder sent
+| PATCH /api/reminders/:reminderId/sent
 |--------------------------------------------------------------------------
+|
+| Staff clicks "Send Reminder".
+|
+| This:
+|
+| 1. Creates in-app Notification
+| 2. Attempts email through existing
+|    notification/email service
+| 3. Marks Reminder as sent
+|
 */
 
 exports.markReminderSent =
-  async (
-    req,
-    res
-  ) => {
+  async (req, res) => {
     try {
       const reminder =
         await Reminder
-          .findByIdAndUpdate(
+          .findById(
             req.params
-              .reminderId,
-
-            {
-              reminderSent:
-                true,
-
-              reminderDate:
-                new Date()
-            },
-
-            {
-              new:
-                true
-            }
+              .reminderId
           );
 
       if (!reminder) {
         return res
           .status(404)
           .json({
-            success:
-              false,
-
+            success: false,
             message:
               'Reminder not found'
           });
       }
 
-      return res.json({
-        success:
-          true,
-
+      if (
         reminder
+          .reminderSent
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              'This reminder has already been sent'
+          });
+      }
+
+      const dateLabel =
+        new Date(
+          reminder
+            .nextEligibleDate
+        )
+          .toLocaleDateString(
+            'en-GB',
+            {
+              day:
+                'numeric',
+
+              month:
+                'long',
+
+              year:
+                'numeric'
+            }
+          );
+
+      /*
+       * notificationService:
+       *
+       * creates in-app Notification
+       * +
+       * attempts email
+       */
+      const delivery =
+        await notifyUser({
+          userId:
+            reminder.donorId,
+
+          message:
+            `BloodBridge reminder: your next eligible blood donation date is ${dateLabel}. ` +
+            `Please review your current eligibility in BloodBridge before donating.`,
+
+          type:
+            'reminder',
+
+          subject:
+            'BloodBridge — Donation Eligibility Reminder',
+
+          eventKey:
+            `reminder:${reminder._id}:${new Date(
+              reminder
+                .nextEligibleDate
+            ).toISOString()}`
+        });
+
+      reminder.reminderSent =
+        true;
+
+      reminder.reminderDate =
+        new Date();
+
+      await reminder.save();
+
+      return res.json({
+        success: true,
+
+        message:
+          'Reminder sent successfully',
+
+        reminder,
+
+        delivery: {
+          inAppCreated:
+            Boolean(
+              delivery
+                ?.notification
+            ),
+
+          emailSent:
+            Boolean(
+              delivery
+                ?.emailSent
+            )
+        }
       });
     } catch (err) {
       return res
         .status(500)
         .json({
-          success:
-            false,
-
+          success: false,
           message:
             err.message
         });

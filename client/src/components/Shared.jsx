@@ -30,6 +30,15 @@ export function Navbar() {
           )}
         </NavLink>
         <NavLink to="/donations">{t('nav.donations')}</NavLink>
+        <NavLink to="/reminders">
+          {t(
+            'nav.reminders',
+            {
+              defaultValue:
+                'Reminders'
+            }
+          )}
+        </NavLink>
         <NavLink to="/requests">{t('nav.requests')}</NavLink>
         <NavLink to="/queue">{t('nav.queue')}</NavLink>
         {['BloodBank', 'Hospital', 'Admin'].includes(user?.role) && (

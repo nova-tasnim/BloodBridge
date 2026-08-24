@@ -40,7 +40,15 @@ export default function InventoryPage() {
 
   const [bankId, setBankId] =
     useState('');
-
+  const [
+      bloodBanks,
+      setBloodBanks
+    ] = useState([]);
+    
+  const [
+      bankSearch,
+      setBankSearch
+  ] = useState('');
   const [summary, setSummary] =
     useState(null);
 
@@ -135,7 +143,41 @@ export default function InventoryPage() {
       );
     }
   };
+  /*
+|--------------------------------------------------------------------------
+| Load BloodBanks for Hospital / Admin
+|--------------------------------------------------------------------------
+*/
 
+const loadBloodBanks =
+  async () => {
+    if (
+      user?.role !==
+        'Hospital' &&
+      user?.role !==
+        'Admin'
+    ) {
+      return;
+    }
+
+    try {
+      const response =
+        await inventoryApi
+          .banks();
+
+      setBloodBanks(
+        Array.isArray(
+          response?.data
+        )
+          ? response.data
+          : []
+      );
+    } catch (err) {
+      setError(
+        err.message
+      );
+    }
+  };
   /*
   |--------------------------------------------------------------------------
   | BloodBank automatically loads own inventory
@@ -150,7 +192,22 @@ export default function InventoryPage() {
       loadAll('me');
     }
   }, [user]);
+   /*
+|--------------------------------------------------------------------------
+| Hospital / Admin load available BloodBanks
+|--------------------------------------------------------------------------
+*/
 
+useEffect(() => {
+  if (
+    user?.role ===
+      'Hospital' ||
+    user?.role ===
+      'Admin'
+  ) {
+    loadBloodBanks();
+  }
+}, [user]);
   /*
   |--------------------------------------------------------------------------
   | Hospital / Admin load selected BloodBank
@@ -282,7 +339,33 @@ export default function InventoryPage() {
         );
       }
     };
+    const filteredBloodBanks =
+  bloodBanks.filter(
+    (bank) => {
+      const query =
+        bankSearch
+          .trim()
+          .toLowerCase();
 
+      if (!query) {
+        return true;
+      }
+
+      return (
+        bank.name
+          ?.toLowerCase()
+          .includes(
+            query
+          ) ||
+
+        bank.email
+          ?.toLowerCase()
+          .includes(
+            query
+          )
+      );
+    }
+  );
   return (
     <div className="page">
       <PageHeader
@@ -382,48 +465,96 @@ export default function InventoryPage() {
             </button>
           </div>
         ) : (
-          <form
-            onSubmit={
-              handleLoad
-            }
-            className="form-row"
-          >
-            <Field
-              label={
-                t(
-                  'inventory.bloodBankId'
-                )
-              }
-            >
-              <input
-                value={bankId}
-                onChange={(e) =>
-                  setBankId(
-                    e.target.value
-                  )
-                }
-                placeholder="Enter Blood Bank ID"
-                required
-              />
-            </Field>
-
+          <div>
             <div
-              style={{
-                alignSelf:
-                  'flex-end',
-                paddingBottom:
-                  12
-              }}
+              className="form-row"
             >
-              <button
-                type="submit"
+              <Field
+                label="Search Blood Bank"
               >
-                {t(
-                  'inventory.load'
-                )}
-              </button>
+                <input
+                  type="text"
+                  value={
+                    bankSearch
+                  }
+                  onChange={(e) =>
+                    setBankSearch(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Search by Blood Bank name or email"
+                />
+              </Field>
+          
+              <Field
+                label="Select Blood Bank"
+              >
+                <select
+                  value={
+                    bankId
+                  }
+                  onChange={(e) =>
+                    setBankId(
+                      e.target.value
+                    )
+                  }
+                >
+                  <option value="">
+                    Select a Blood Bank
+                  </option>
+          
+                  {filteredBloodBanks
+                    .map(
+                      (bank) => (
+                        <option
+                          key={
+                            bank._id
+                          }
+                          value={
+                            bank._id
+                          }
+                        >
+                          {bank.name}
+                          {' — '}
+                          {bank.email}
+                        </option>
+                      )
+                    )}
+                </select>
+              </Field>
+          
+              <div
+                style={{
+                  alignSelf:
+                    'flex-end',
+                  paddingBottom:
+                    12
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={
+                    !bankId
+                  }
+                  onClick={() =>
+                    loadAll(
+                      bankId
+                    )
+                  }
+                >
+                  Load Inventory
+                </button>
+              </div>
             </div>
-          </form>
+          
+            {bloodBanks.length ===
+              0 && (
+              <p className="muted">
+                No verified Blood Banks
+                are currently available.
+              </p>
+            )}
+          </div>
         )}
       </Card>
 

@@ -16,24 +16,23 @@ const {
 } =
   require('../middleware/auth');
 
+
 router.use(
   protect
 );
+
 
 /*
 |--------------------------------------------------------------------------
 | Donor eligibility
 |--------------------------------------------------------------------------
 |
-| Owner can view their own eligibility.
-| Hospital / BloodBank / Admin may view another donor.
+| Native Donor or Patient-donor:
+| own reminder.
 |
-| donorOwnerOrRoles supports:
-| - User._id
-| - native DON-XXXXXX
-| - Patient-donor DON-XXXXXX
+| Staff:
+| may inspect donor eligibility.
 |
-|--------------------------------------------------------------------------
 */
 
 router.get(
@@ -50,15 +49,39 @@ router.get(
     .getNextEligibleDate
 );
 
+
 /*
 |--------------------------------------------------------------------------
-| Create / refresh reminder
+| Read saved Reminder from MongoDB
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  '/donor/:donorId',
+
+  donorOwnerOrRoles(
+    'donorId',
+    'Hospital',
+    'BloodBank',
+    'Admin'
+  ),
+
+  reminderController
+    .getReminderForDonor
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Create / refresh own reminder
 |--------------------------------------------------------------------------
 |
-| Donor owner can create their own reminder.
-| Admin may create one for another donor.
+| Donor owner:
+| yes
 |
-|--------------------------------------------------------------------------
+| Admin:
+| may create for another donor
+|
 */
 
 router.post(
@@ -73,9 +96,10 @@ router.post(
     .createReminder
 );
 
+
 /*
 |--------------------------------------------------------------------------
-| Staff reminder management
+| Staff management
 |--------------------------------------------------------------------------
 */
 
@@ -92,6 +116,7 @@ router.get(
     .getDueReminders
 );
 
+
 router.patch(
   '/:reminderId/sent',
 
@@ -104,6 +129,7 @@ router.patch(
   reminderController
     .markReminderSent
 );
+
 
 module.exports =
   router;

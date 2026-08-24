@@ -1,4 +1,6 @@
 const Inventory = require('../models/Inventory');
+const { User } =
+  require('../models/User');
 const {
   addStock,
   consumeStock,
@@ -169,3 +171,87 @@ exports.getInventoryAlerts = async (req, res) => {
   const alerts = await getAlerts(bankId, warningDays);
   res.json({ success: true, data: alerts });
 };
+/*
+|--------------------------------------------------------------------------
+| List BloodBanks for inventory selection
+|--------------------------------------------------------------------------
+|
+| Hospital/Admin should never need to know a MongoDB ID.
+| This endpoint gives the frontend BloodBank names + internal IDs.
+|
+*/
+
+exports.getBloodBanks =
+  async (req, res) => {
+    try {
+      const {
+        search = ''
+      } = req.query;
+
+      const filter = {
+        role:
+          'BloodBank',
+
+        isActive:
+          true,
+
+        isVerified:
+          true
+      };
+
+      if (
+        String(search)
+          .trim()
+      ) {
+        filter.$or = [
+          {
+            name: {
+              $regex:
+                String(search)
+                  .trim(),
+
+              $options:
+                'i'
+            }
+          },
+
+          {
+            email: {
+              $regex:
+                String(search)
+                  .trim(),
+
+              $options:
+                'i'
+            }
+          }
+        ];
+      }
+
+      const banks =
+        await User
+          .find(filter)
+
+          .select(
+            '_id name email operatingHours contactPerson'
+          )
+
+          .sort({
+            name:
+              1
+          });
+
+      return res.json({
+        success: true,
+        data: banks
+      });
+    } catch (err) {
+      return res
+        .status(500)
+        .json({
+          success: false,
+          message:
+            err.message
+        });
+    }
+  };

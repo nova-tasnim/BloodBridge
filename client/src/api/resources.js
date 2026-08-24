@@ -133,6 +133,12 @@ export const requestApi = {
 
 export const inventoryApi = {
   list: (params) => api.get('/inventory', { params }),
+  banks: (params) =>
+  api.get(
+    '/inventory/banks',
+    { params }
+  ),
+  
   add: (payload) => api.post('/inventory', payload),
   consume: (id, units) => api.patch(`/inventory/${id}/consume`, { units }),
   remove: (id) => api.delete(`/inventory/${id}`),
@@ -383,5 +389,55 @@ export const badgeApi = {
   ) =>
     api.post(
       `/badges/donor/${donorId}/check`
+    )
+};
+export const reminderApi = {
+  /*
+   * Calculate eligibility from
+   * real eligibility engine.
+   */
+  nextEligible: (
+    donorId
+  ) =>
+    api.get(
+      `/reminders/donor/${donorId}/next-eligible`
+    ),
+
+  /*
+   * Read saved MongoDB Reminder.
+   */
+  current: (
+    donorId
+  ) =>
+    api.get(
+      `/reminders/donor/${donorId}`
+    ),
+
+  /*
+   * Create or refresh Reminder.
+   */
+  create: (
+    donorId
+  ) =>
+    api.post(
+      `/reminders/donor/${donorId}`
+    ),
+
+  /*
+   * Staff due reminders.
+   */
+  due: () =>
+    api.get(
+      '/reminders/due'
+    ),
+
+  /*
+   * Send reminder.
+   */
+  markSent: (
+    reminderId
+  ) =>
+    api.patch(
+      `/reminders/${reminderId}/sent`
     )
 };

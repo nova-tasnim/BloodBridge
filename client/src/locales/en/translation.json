@@ -7,7 +7,8 @@
     "queue": "Queue",
     "inventory": "Inventory",
     "campaigns": "Campaigns",
-    "map": "Map"
+    "map": "Map",
+    "reminders": "Reminders"
   },
   "map": {
     "title": "Nearby Active Blood Requests",
@@ -507,5 +508,36 @@
     "title": "Notifications",
     "markAllRead": "Mark all read",
     "empty": "You're all caught up — no notifications yet."
-  }
+  },
+  "reminders": {
+  "title": "Donation Reminders",
+  "subtitle": "Track the next eligible donation date and manage upcoming donor reminders.",
+  "myReminder": "My Next Donation Reminder",
+  "status": "Eligibility Status",
+  "eligibleNow": "Eligible now",
+  "notEligibleYet": "Not eligible yet",
+  "nextEligibleDate": "Next eligible date",
+  "requiredInterval": "Required interval",
+  "days": "days",
+  "currentReasons": "Current eligibility notes:",
+  "savedDate": "Saved reminder date:",
+  "deliveryState": "Reminder status:",
+  "sent": "Sent",
+  "waiting": "Waiting",
+  "noneSaved": "No reminder has been saved for your account yet.",
+  "refreshReminder": "Refresh Reminder",
+  "createReminder": "Create Reminder",
+  "noFutureReminderNeeded": "There is no future donation eligibility date requiring a reminder right now.",
+  "patientTitle": "Donation Reminder",
+  "patientMessage": "Register as a blood donor first to calculate and save your next donation reminder.",
+  "dueTitle": "Reminders Due Within 7 Days",
+  "noneDue": "No unsent reminders are currently due.",
+  "donor": "Donor",
+  "bloodGroup": "Blood Group",
+  "contact": "Contact",
+  "action": "Action",
+  "sendReminder": "Send Reminder",
+  "savedSuccess": "Donation eligibility reminder saved successfully.",
+  "markedSent": "Reminder sent to the donor."
+}
 }

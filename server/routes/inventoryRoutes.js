@@ -12,7 +12,8 @@ const {
   consumeInventory,
   deleteInventory,
   getSummary,
-  getInventoryAlerts
+  getInventoryAlerts,
+  getBloodBanks
 } =
   require(
     '../controllers/inventoryController'
@@ -89,7 +90,10 @@ router.get(
 
   getInventoryAlerts
 );
-
+router.get(
+  '/banks',
+  getBloodBanks
+);
 /*
 |--------------------------------------------------------------------------
 | Inventory collection
