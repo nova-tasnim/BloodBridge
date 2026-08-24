@@ -380,17 +380,109 @@ exports.invite =
 | Timeline
 |--------------------------------------------------------------------------
 */
-
 exports.getTimeline =
   async (req, res) => {
     try {
+      /*
+      |--------------------------------------------------------------------------
+      | Resolve access first
+      |--------------------------------------------------------------------------
+      */
+
+      const request =
+        await BloodRequest
+          .findById(
+            req.params.id
+          )
+          .select(
+            'requester matchedDonors'
+          );
+
+      if (!request) {
+        return res
+          .status(404)
+          .json({
+            success: false,
+
+            message:
+              'Blood request not found'
+          });
+      }
+
+      const viewerId =
+        req.user._id;
+
+      const owner =
+        String(
+          request.requester
+        ) ===
+        String(
+          viewerId
+        );
+
+      const staff =
+        isStaff(
+          req.user
+        );
+
+      /*
+       * A matched donor must be able to open
+       * the timeline before accepting/declining.
+       */
+      const matchedDonor =
+        request
+          .matchedDonors
+          .some(
+            (donorId) =>
+              String(
+                donorId
+              ) ===
+              String(
+                viewerId
+              )
+          );
+
+      if (
+        !owner &&
+        !staff &&
+        !matchedDonor
+      ) {
+        return res
+          .status(403)
+          .json({
+            success: false,
+
+            message:
+              'Forbidden — you are not authorized to view this request timeline'
+          });
+      }
+
+      let visibility =
+        'owner';
+
+      if (staff) {
+        visibility =
+          'staff';
+      } else if (
+        matchedDonor &&
+        !owner
+      ) {
+        visibility =
+          'donor';
+      }
+
       const timeline =
         await getRequestTimeline(
-          req.params.id
+          req.params.id,
+          {
+            viewerId,
+            visibility
+          }
         );
 
       return res.json({
         success: true,
+
         data:
           timeline
       });
@@ -398,16 +490,16 @@ exports.getTimeline =
       return res
         .status(
           err.statusCode ||
-          404
+          500
         )
         .json({
           success: false,
+
           message:
             err.message
         });
     }
   };
-
 /*
 |--------------------------------------------------------------------------
 | Transition map

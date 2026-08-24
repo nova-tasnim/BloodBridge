@@ -168,7 +168,8 @@ export default function FeedbackPanel({
         </span>
       </div>
 
-      {!submitted && (
+      {user?.role !== 'Admin' &&
+       !submitted && (
         <form
           className="bb-feedback-form"
           onSubmit={handleSubmit}
@@ -221,7 +222,9 @@ export default function FeedbackPanel({
         </form>
       )}
 
-      {submitted && !notice && (
+      {user?.role !== 'Admin' &&
+        submitted &&
+        !notice && (
         <p className="muted">
           {t('feedback.alreadySubmitted')}
         </p>

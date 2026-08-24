@@ -7,67 +7,112 @@ const router =
 const {
   createDonation,
   getMyDonationHistory,
+  getMyRegisteredCampaigns,
   getDonorHistory,
+  getPendingDonationApprovals,
+  approveDonationRecord,
+  rejectDonationRecord,
   getDonationById
 } =
   require('../controllers/donationController');
 
 const {
   protect,
-  requireDonorCapability
+  authorize,
+  requireDonorCapability,
+  requireVerifiedInstitution
 } =
   require('../middleware/auth');
+router.use(
+  protect
+);
 
 /*
 |--------------------------------------------------------------------------
-| All donation endpoints require authentication
-|--------------------------------------------------------------------------
-*/
-
-router.use(protect);
-
-/*
-|--------------------------------------------------------------------------
-| Own donation history
-|--------------------------------------------------------------------------
-|
-| Native Donor
-| Patient + donorProfile
+| Donor-capable own routes
 |--------------------------------------------------------------------------
 */
 
 router.get(
   '/me',
+
   requireDonorCapability,
+
   getMyDonationHistory
 );
 
-/*
-|--------------------------------------------------------------------------
-| Record donation
-|--------------------------------------------------------------------------
-|
-| Detailed capability enforcement happens inside controller because
-| different users have different logging behavior.
-|--------------------------------------------------------------------------
-*/
+router.get(
+  '/my-campaigns',
 
-router.post(
-  '/',
-  createDonation
+  requireDonorCapability,
+
+  getMyRegisteredCampaigns
 );
 
 /*
 |--------------------------------------------------------------------------
-| Lookup donor history
+| Admin approval queue
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  '/pending',
+
+  authorize(
+    'Admin'
+  ),
+
+  getPendingDonationApprovals
+);
+
+router.patch(
+  '/:id/approve',
+
+  authorize(
+    'Admin'
+  ),
+
+  approveDonationRecord
+);
+
+router.patch(
+  '/:id/reject',
+
+  authorize(
+    'Admin'
+  ),
+
+  rejectDonationRecord
+);
+
+/*
+|--------------------------------------------------------------------------
+| Submit donation
+|--------------------------------------------------------------------------
+|
+| Detailed capability rules remain inside controller.
+|--------------------------------------------------------------------------
+*/
+router.post(
+  '/',
+
+  requireVerifiedInstitution,
+
+  createDonation
+);
+/*
+|--------------------------------------------------------------------------
+| Public-within-authorized-app donor lookup
 |--------------------------------------------------------------------------
 */
 
 router.get(
   '/donor/:donorId',
+
+  requireVerifiedInstitution,
+
   getDonorHistory
 );
-
 /*
 |--------------------------------------------------------------------------
 | Single record

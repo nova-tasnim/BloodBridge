@@ -40,11 +40,7 @@ export default function LiveStatsBar() {
 
   if (!stats) return null;
 
-  const totalUsers =
-    (stats.totalDonors || 0) +
-    (stats.totalPatients || 0) +
-    (stats.totalHospitals || 0) +
-    (stats.totalBloodBanks || 0);
+  const totalUsers = stats.totalCommunityMembers || 0;
 
   return (
     <div className="bb-stats-bar">

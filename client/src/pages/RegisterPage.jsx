@@ -58,13 +58,32 @@ export default function RegisterPage() {
       };
     }
 
-    if (form.role === 'Patient') {
+    if (
+      form.role ===
+      'Patient'
+    ) {
       return {
         ...base,
-        bloodGroup: form.bloodGroup || undefined,
-        dateOfBirth: form.dateOfBirth || undefined,
-        medicalCondition: form.medicalCondition,
-        guardianContact: form.guardianContact
+    
+        bloodGroup:
+          form.bloodGroup,
+    
+        dateOfBirth:
+          form.dateOfBirth,
+    
+        gender:
+          form.gender,
+    
+        weightKg:
+          Number(
+            form.weightKg
+          ),
+    
+        medicalCondition:
+          form.medicalCondition,
+    
+        guardianContact:
+          form.guardianContact
       };
     }
 
@@ -183,29 +202,161 @@ export default function RegisterPage() {
             </>
           )}
 
-          {form.role === 'Patient' && (
+          {form.role ===
+            'Patient' && (
             <>
               <div className="form-row">
-                <Field label={t('auth.bloodGroup')}>
-                  <select value={form.bloodGroup} onChange={set('bloodGroup')}>
-                    {BLOOD_GROUPS.map((g) => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
+                <Field
+                  label={
+                    t(
+                      'auth.bloodGroup'
+                    )
+                  }
+                >
+                  <select
+                    value={
+                      form.bloodGroup
+                    }
+                    onChange={
+                      set(
+                        'bloodGroup'
+                      )
+                    }
+                    required
+                  >
+                    {BLOOD_GROUPS.map(
+                      (g) => (
+                        <option
+                          key={g}
+                          value={g}
+                        >
+                          {g}
+                        </option>
+                      )
+                    )}
                   </select>
                 </Field>
-                <Field label={t('auth.dateOfBirth')}>
+          
+                <Field
+                  label={
+                    t(
+                      'auth.dateOfBirth'
+                    )
+                  }
+                >
                   <input
                     type="date"
-                    value={form.dateOfBirth}
-                    onChange={set('dateOfBirth')}
+                    value={
+                      form.dateOfBirth
+                    }
+                    onChange={
+                      set(
+                        'dateOfBirth'
+                      )
+                    }
+                    required
                   />
                 </Field>
               </div>
-              <Field label={t('auth.medicalCondition')}>
-                <input value={form.medicalCondition} onChange={set('medicalCondition')} />
+          
+              <div className="form-row">
+                <Field
+                  label={
+                    t(
+                      'auth.gender'
+                    )
+                  }
+                >
+                  <select
+                    value={
+                      form.gender
+                    }
+                    onChange={
+                      set(
+                        'gender'
+                      )
+                    }
+                    required
+                  >
+                    <option value="male">
+                      {t(
+                        'donors.male'
+                      )}
+                    </option>
+          
+                    <option value="female">
+                      {t(
+                        'donors.female'
+                      )}
+                    </option>
+          
+                    <option value="other">
+                      {t(
+                        'donors.other'
+                      )}
+                    </option>
+                  </select>
+                </Field>
+          
+                <Field
+                  label={
+                    t(
+                      'auth.weightKg'
+                    )
+                  }
+                >
+                  <input
+                    type="number"
+                    min="0"
+                    value={
+                      form.weightKg
+                    }
+                    onChange={
+                      set(
+                        'weightKg'
+                      )
+                    }
+                    required
+                  />
+                </Field>
+              </div>
+          
+              <Field
+                label={
+                  t(
+                    'auth.medicalCondition'
+                  )
+                }
+              >
+                <input
+                  value={
+                    form.medicalCondition
+                  }
+                  onChange={
+                    set(
+                      'medicalCondition'
+                    )
+                  }
+                />
               </Field>
-              <Field label={t('auth.guardianContact')}>
-                <input value={form.guardianContact} onChange={set('guardianContact')} />
+          
+              <Field
+                label={
+                  t(
+                    'auth.guardianContact'
+                  )
+                }
+              >
+                <input
+                  value={
+                    form.guardianContact
+                  }
+                  onChange={
+                    set(
+                      'guardianContact'
+                    )
+                  }
+                />
               </Field>
             </>
           )}

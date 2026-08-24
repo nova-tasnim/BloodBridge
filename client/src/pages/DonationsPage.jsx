@@ -16,7 +16,8 @@ import {
   useAuth
 } from '../context/AuthContext';
 
-import FeedbackPanel from '../components/FeedbackPanel';
+import FeedbackPanel
+  from '../components/FeedbackPanel';
 
 import {
   PageHeader,
@@ -29,24 +30,41 @@ import {
   formatDate
 } from '../components/Shared';
 
+const STATUS_BADGE = {
+  pending:
+    'warn',
+
+  approved:
+    'ok',
+
+  rejected:
+    'bad'
+};
+
 export default function DonationsPage() {
-  const { t } =
+  const {
+    t
+  } =
     useTranslation();
 
-  const { user } =
+  const {
+    user
+  } =
     useAuth();
 
   /*
   |--------------------------------------------------------------------------
-  | Capability calculation
+  | Capabilities
   |--------------------------------------------------------------------------
   */
 
   const isNativeDonor =
-    user?.role === 'Donor';
+    user?.role ===
+    'Donor';
 
   const isPatientDonor =
-    user?.role === 'Patient' &&
+    user?.role ===
+      'Patient' &&
     Boolean(
       user?.donorProfile
     );
@@ -55,19 +73,6 @@ export default function DonationsPage() {
     isNativeDonor ||
     isPatientDonor;
 
-  const canViewOwnHistory =
-    canSelfDonate;
-
-  /*
-   * Your capability matrix:
-   *
-   * Native Donor        ❌
-   * Patient             ✅
-   * Patient donor       ✅
-   * Hospital            ✅
-   * BloodBank           ✅
-   * Admin               ✅
-   */
   const canLookupOtherDonor =
     [
       'Patient',
@@ -78,9 +83,6 @@ export default function DonationsPage() {
       user?.role
     );
 
-  /*
-   * Only institutions/admin log for someone else.
-   */
   const canLogForOther =
     [
       'Hospital',
@@ -90,13 +92,20 @@ export default function DonationsPage() {
       user?.role
     );
 
+  const isAdmin =
+    user?.role ===
+    'Admin';
+
   /*
   |--------------------------------------------------------------------------
   | State
   |--------------------------------------------------------------------------
   */
 
-  const [ownHistory, setOwnHistory] =
+  const [
+    ownHistory,
+    setOwnHistory
+  ] =
     useState(null);
 
   const [
@@ -117,10 +126,28 @@ export default function DonationsPage() {
   ] =
     useState(null);
 
-  const [error, setError] =
+  const [
+    campaigns,
+    setCampaigns
+  ] =
+    useState([]);
+
+  const [
+    pendingApprovals,
+    setPendingApprovals
+  ] =
+    useState([]);
+
+  const [
+    error,
+    setError
+  ] =
     useState('');
 
-  const [notice, setNotice] =
+  const [
+    notice,
+    setNotice
+  ] =
     useState('');
 
   const [
@@ -131,7 +158,7 @@ export default function DonationsPage() {
 
   /*
   |--------------------------------------------------------------------------
-  | Self-donation form
+  | Self submission
   |--------------------------------------------------------------------------
   */
 
@@ -140,14 +167,33 @@ export default function DonationsPage() {
     setSelfForm
   ] =
     useState({
-      unitsDonated: 1,
-      locationName: '',
-      notes: ''
+      donationType:
+        'regular',
+
+      campaignId:
+        '',
+
+      donationDate:
+        new Date()
+          .toISOString()
+          .slice(
+            0,
+            10
+          ),
+
+      unitsDonated:
+        1,
+
+      locationName:
+        '',
+
+      notes:
+        ''
     });
 
   /*
   |--------------------------------------------------------------------------
-  | Institution/Admin form
+  | Staff submission
   |--------------------------------------------------------------------------
   */
 
@@ -156,61 +202,50 @@ export default function DonationsPage() {
     setStaffForm
   ] =
     useState({
-      donorId: '',
-      unitsDonated: 1,
-      locationName: '',
-      notes: ''
+      donorId:
+        '',
+
+      donationDate:
+        new Date()
+          .toISOString()
+          .slice(
+            0,
+            10
+          ),
+
+      unitsDonated:
+        1,
+
+      locationName:
+        '',
+
+      notes:
+        ''
     });
 
-  /*
-  |--------------------------------------------------------------------------
-  | Helpers
-  |--------------------------------------------------------------------------
-  */
-
-  const extractError = (
-    err,
-    fallback
-  ) =>
-    err?.response?.data?.message ||
-    err?.message ||
-    fallback;
-
-  const setSelf =
-    (key) =>
-    (e) => {
-      setSelfForm(
-        (previous) => ({
-          ...previous,
-
-          [key]:
-            e.target.value
-        })
-      );
-    };
-
-  const setStaff =
-    (key) =>
-    (e) => {
-      setStaffForm(
-        (previous) => ({
-          ...previous,
-
-          [key]:
-            e.target.value
-        })
-      );
-    };
+  const extractError =
+    (
+      err,
+      fallback
+    ) =>
+      err?.response?.data
+        ?.message ||
+      err?.message ||
+      fallback;
 
   /*
   |--------------------------------------------------------------------------
-  | Own history
+  | Load own history
   |--------------------------------------------------------------------------
   */
 
   const loadMyHistory =
     async () => {
-      setError('');
+      if (
+        !canSelfDonate
+      ) {
+        return;
+      }
 
       try {
         const res =
@@ -218,15 +253,14 @@ export default function DonationsPage() {
             .getMyHistory();
 
         setOwnHistory(
-          res || null
+          res ||
+          null
         );
       } catch (err) {
-        setOwnHistory(null);
-
         setError(
           extractError(
             err,
-            'Failed to load your donation history'
+            'Failed to load donation history'
           )
         );
       }
@@ -234,225 +268,288 @@ export default function DonationsPage() {
 
   /*
   |--------------------------------------------------------------------------
-  | Another donor's history
+  | Load registered campaigns
   |--------------------------------------------------------------------------
   */
 
-  const loadLookupHistory =
-    async (donorId) => {
-      const cleanId =
-        String(
-          donorId || ''
-        ).trim();
-
-      if (!cleanId) {
+  const loadMyCampaigns =
+    async () => {
+      if (
+        !canSelfDonate
+      ) {
         return;
       }
-
-      setError('');
 
       try {
         const res =
           await donationsApi
-            .getDonorHistory(
-              cleanId
-            );
+            .myCampaigns();
 
-        setLookupHistory(
-          res || null
-        );
-
-        setLookupTarget(
-          res?.donor || {
-            publicId:
-              cleanId
-          }
+        setCampaigns(
+          Array.isArray(
+            res?.data
+          )
+            ? res.data
+            : []
         );
       } catch (err) {
-        setLookupHistory(null);
-        setLookupTarget(null);
-
-        setError(
-          extractError(
-            err,
-            'Failed to load donor history'
-          )
+        console.error(
+          'Failed to load campaigns:',
+          err
         );
       }
     };
 
   /*
   |--------------------------------------------------------------------------
-  | Automatically load own history
+  | Admin queue
   |--------------------------------------------------------------------------
   */
 
-  useEffect(() => {
-    if (
-      canViewOwnHistory
-    ) {
-      loadMyHistory();
-    } else {
-      setOwnHistory(null);
-    }
-  }, [
-    user?._id,
-    canViewOwnHistory
-  ]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Lookup submit
-  |--------------------------------------------------------------------------
-  */
-
-  const handleLookup =
-    async (e) => {
-      e.preventDefault();
-
-      setNotice('');
-
-      await loadLookupHistory(
-        lookupDonorId
-      );
-    };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Self-log donation
-  |--------------------------------------------------------------------------
-  */
-
-  const handleSelfLog =
-    async (e) => {
-      e.preventDefault();
-
-      setError('');
-      setNotice('');
-
-      try {
-        const payload = {
-          unitsDonated:
-            Number(
-              selfForm.unitsDonated
-            ),
-
-          locationName:
-            selfForm.locationName,
-
-          notes:
-            selfForm.notes
-        };
-
-        /*
-         * No donorId.
-         *
-         * Backend identifies current donor from token.
-         */
-        const res =
-          await donationsApi.create(
-            payload
-          );
-
-        setNotice(
-          res?.message ||
-          'Donation recorded successfully'
-        );
-
-        setSelfForm({
-          unitsDonated: 1,
-          locationName: '',
-          notes: ''
-        });
-
-        await loadMyHistory();
-      } catch (err) {
-        setError(
-          extractError(
-            err,
-            'Failed to record donation'
-          )
-        );
-      }
-    };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Hospital/BloodBank/Admin log for another donor
-  |--------------------------------------------------------------------------
-  */
-
-  const handleStaffLog =
-    async (e) => {
-      e.preventDefault();
-
-      setError('');
-      setNotice('');
-
-      const targetId =
-        staffForm.donorId.trim();
-
-      if (!targetId) {
-        setError(
-          'Donor ID is required'
-        );
-
+  const loadPending =
+    async () => {
+      if (!isAdmin) {
         return;
       }
 
       try {
-        const payload = {
-          donorId:
-            targetId,
+        const res =
+          await donationsApi
+            .pending();
 
-          unitsDonated:
-            Number(
-              staffForm.unitsDonated
-            ),
+        setPendingApprovals(
+          Array.isArray(
+            res?.data
+          )
+            ? res.data
+            : []
+        );
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Failed to load pending donation approvals'
+          )
+        );
+      }
+    };
 
-          locationName:
-            staffForm.locationName,
+  useEffect(() => {
+    if (
+      canSelfDonate
+    ) {
+      loadMyHistory();
+      loadMyCampaigns();
+    }
 
-          notes:
-            staffForm.notes
-        };
+    if (isAdmin) {
+      loadPending();
+    }
+  }, [
+    user?._id,
+    canSelfDonate,
+    isAdmin
+  ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Submit own donation
+  |--------------------------------------------------------------------------
+  */
+
+  const handleSelfLog =
+    async (
+      e
+    ) => {
+      e.preventDefault();
+
+      setError('');
+      setNotice('');
+
+      try {
+        if (
+          selfForm
+            .donationType ===
+            'campaign' &&
+          !selfForm
+            .campaignId
+        ) {
+          setError(
+            'Please select a campaign.'
+          );
+
+          return;
+        }
 
         const res =
-          await donationsApi.create(
-            payload
-          );
+          await donationsApi
+            .create({
+              donationType:
+                selfForm
+                  .donationType,
+
+              campaignId:
+                selfForm
+                  .donationType ===
+                    'campaign'
+                  ? selfForm
+                      .campaignId
+                  : null,
+
+              donationDate:
+                selfForm
+                  .donationDate,
+
+              unitsDonated:
+                Number(
+                  selfForm
+                    .unitsDonated
+                ),
+
+              locationName:
+                selfForm
+                  .locationName,
+
+              notes:
+                selfForm
+                  .notes
+            });
 
         setNotice(
           res?.message ||
-          'Donation recorded successfully'
+          'Donation submitted for Admin approval.'
+        );
+
+        setSelfForm({
+          donationType:
+            'regular',
+
+          campaignId:
+            '',
+
+          donationDate:
+            new Date()
+              .toISOString()
+              .slice(
+                0,
+                10
+              ),
+
+          unitsDonated:
+            1,
+
+          locationName:
+            '',
+
+          notes:
+            ''
+        });
+
+        await Promise.all([
+          loadMyHistory(),
+          loadMyCampaigns()
+        ]);
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Unable to submit donation'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Staff/Admin log for another donor
+  |--------------------------------------------------------------------------
+  */
+
+  const handleStaffLog =
+    async (
+      e
+    ) => {
+      e.preventDefault();
+
+      setError('');
+      setNotice('');
+
+      try {
+        const donorId =
+          staffForm
+            .donorId
+            .trim();
+
+        if (!donorId) {
+          setError(
+            'Donor ID is required.'
+          );
+
+          return;
+        }
+
+        const res =
+          await donationsApi
+            .create({
+              donorId,
+
+              donationType:
+                'regular',
+
+              donationDate:
+                staffForm
+                  .donationDate,
+
+              unitsDonated:
+                Number(
+                  staffForm
+                    .unitsDonated
+                ),
+
+              locationName:
+                staffForm
+                  .locationName,
+
+              notes:
+                staffForm
+                  .notes
+            });
+
+        setNotice(
+          res?.message ||
+          'Donation submitted for Admin approval.'
         );
 
         setStaffForm({
-          donorId: '',
-          unitsDonated: 1,
-          locationName: '',
-          notes: ''
+          donorId:
+            '',
+
+          donationDate:
+            new Date()
+              .toISOString()
+              .slice(
+                0,
+                10
+              ),
+
+          unitsDonated:
+            1,
+
+          locationName:
+            '',
+
+          notes:
+            ''
         });
 
-        /*
-         * Show updated target history automatically.
-         */
-        if (
-          canLookupOtherDonor
-        ) {
-          setLookupDonorId(
-            targetId
-          );
-
-          await loadLookupHistory(
-            targetId
-          );
+        if (isAdmin) {
+          await loadPending();
         }
       } catch (err) {
         setError(
           extractError(
             err,
-            'Failed to record donation'
+            'Unable to submit donation'
           )
         );
       }
@@ -460,308 +557,416 @@ export default function DonationsPage() {
 
   /*
   |--------------------------------------------------------------------------
-  | History rendering helpers
+  | Lookup
   |--------------------------------------------------------------------------
   */
 
-  const getRecords =
-    (history) =>
+  const handleLookup =
+    async (
+      e
+    ) => {
+      e.preventDefault();
+
+      setError('');
+
+      try {
+        const clean =
+          lookupDonorId
+            .trim();
+
+        const res =
+          await donationsApi
+            .getDonorHistory(
+              clean
+            );
+
+        setLookupHistory(
+          res ||
+          null
+        );
+
+        setLookupTarget(
+          res?.donor ||
+          null
+        );
+      } catch (err) {
+        setLookupHistory(
+          null
+        );
+
+        setLookupTarget(
+          null
+        );
+
+        setError(
+          extractError(
+            err,
+            'Unable to load donor history'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Admin approve
+  |--------------------------------------------------------------------------
+  */
+
+  const handleApprove =
+    async (
+      record
+    ) => {
+      const confirmed =
+        window.confirm(
+          `Approve donation ${record.publicId}?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setError('');
+      setNotice('');
+
+      try {
+        const res =
+          await donationsApi
+            .approve(
+              record._id
+            );
+
+        setNotice(
+          res?.message ||
+          'Donation approved.'
+        );
+
+        await loadPending();
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Unable to approve donation'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Admin reject
+  |--------------------------------------------------------------------------
+  */
+
+  const handleReject =
+    async (
+      record
+    ) => {
+      const reason =
+        window.prompt(
+          `Why are you rejecting ${record.publicId}?`,
+          ''
+        );
+
+      if (
+        reason ===
+        null
+      ) {
+        return;
+      }
+
+      setError('');
+      setNotice('');
+
+      try {
+        const res =
+          await donationsApi
+            .reject(
+              record._id,
+              reason
+            );
+
+        setNotice(
+          res?.message ||
+          'Donation rejected.'
+        );
+
+        await loadPending();
+      } catch (err) {
+        setError(
+          extractError(
+            err,
+            'Unable to reject donation'
+          )
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | History helpers
+  |--------------------------------------------------------------------------
+  */
+
+  const recordsOf =
+    (
+      history
+    ) =>
       Array.isArray(
         history?.data
       )
         ? history.data
         : [];
 
-  const getRecordCount =
-    (history) => {
-      const records =
-        getRecords(history);
-
-      return typeof history?.count ===
-        'number'
-        ? history.count
-        : records.length;
-    };
-
-  /*
-  |--------------------------------------------------------------------------
-  | History panel
-  |--------------------------------------------------------------------------
-  */
-
-  const renderHistorySummary =
+  const renderHistory =
     (
       history,
-      options = {}
+      {
+        own =
+          false
+      } = {}
     ) => {
       if (!history) {
         return null;
       }
 
-      const {
-        allowFeedback = false
-      } =
-        options;
-
       const records =
-        getRecords(history);
-
-      const recordCount =
-        getRecordCount(
+        recordsOf(
           history
         );
 
       return (
-        <>
-          <div
-            style={{
-              marginTop: 16
-            }}
-          >
-            <h3>
-              {t(
-                'donations.statistics'
-              )}
-            </h3>
+        <div
+          style={{
+            marginTop:
+              16
+          }}
+        >
+          <h3>
+            Verified Statistics
+          </h3>
 
-            <div className="muted">
-              {history.stats
-                ?.totalDonations ??
-                recordCount}{' '}
+          <p className="muted">
+            {history.stats
+              ?.totalDonations ||
+              0}{' '}
+            approved donation(s)
+            {' · '}
+            {history.stats
+              ?.totalUnits ||
+              0}{' '}
+            approved unit(s)
 
-              {t(
-                'donations.donationCount'
-              )}
-
-              {' · '}
-
-              {history.stats
-                ?.totalUnits ??
-                0}{' '}
-
-              {t(
-                'donations.unitCount'
-              )}
-
-              {history.stats
-                ?.lastDonation && (
-                <>
-                  {' · '}
-
-                  {t(
-                    'donations.lastOn'
-                  )}{' '}
-
-                  {formatDate(
-                    history.stats
-                      .lastDonation
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: 18
-            }}
-          >
-            {records.length ===
-            0 ? (
-              <Empty>
-                {t(
-                  'donations.noDonations'
+            {history.stats
+              ?.lastDonation && (
+              <>
+                {' · '}
+                Last verified:{' '}
+                {formatDate(
+                  history.stats
+                    .lastDonation
                 )}
-              </Empty>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
+              </>
+            )}
+          </p>
+
+          {records.length ===
+          0 ? (
+            <Empty>
+              No donation records found.
+            </Empty>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    Record
+                  </th>
+
+                  <th>
+                    Date
+                  </th>
+
+                  <th>
+                    Type
+                  </th>
+
+                  <th>
+                    Blood
+                  </th>
+
+                  <th>
+                    Units
+                  </th>
+
+                  <th>
+                    Campaign / Location
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
+
+                  {own && (
                     <th>
-                      {t(
-                        'donations.date'
-                      )}
+                      Feedback
                     </th>
+                  )}
+                </tr>
+              </thead>
 
-                    <th>
-                      {t(
-                        'donations.group'
-                      )}
-                    </th>
+              <tbody>
+                {records.map(
+                  (
+                    record
+                  ) => {
+                    const feedbackOpen =
+                      openFeedbackId ===
+                      record._id;
 
-                    <th>
-                      {t(
-                        'donations.units'
-                      )}
-                    </th>
+                    return (
+                      <Fragment
+                        key={
+                          record._id
+                        }
+                      >
+                        <tr>
+                          <td>
+                            <b>
+                              {
+                                record.publicId
+                              }
+                            </b>
+                          </td>
 
-                    <th>
-                      {t(
-                        'donations.location'
-                      )}
-                    </th>
+                          <td>
+                            {formatDate(
+                              record.donationDate
+                            )}
+                          </td>
 
-                    <th>
-                      {t(
-                        'donations.notes'
-                      )}
-                    </th>
+                          <td>
+                            {record.donationType ===
+                            'campaign'
+                              ? 'Campaign'
+                              : record.donationType ===
+                                  'request'
+                                ? 'Request'
+                                : 'Regular'}
+                          </td>
 
-                    <th>
-                      Status
-                    </th>
+                          <td>
+                            <BloodBadge
+                              group={
+                                record.bloodGroup
+                              }
+                            />
+                          </td>
 
-                    {allowFeedback && (
-                      <th>
-                        {t(
-                          'feedback.actions'
-                        )}
-                      </th>
-                    )}
-                  </tr>
-                </thead>
+                          <td>
+                            {
+                              record.unitsDonated
+                            }
+                          </td>
 
-                <tbody>
-                  {records.map(
-                    (
-                      record,
-                      index
-                    ) => {
-                      const recordId =
-                        record._id ||
-                        record.publicId ||
-                        `donation-${index}`;
+                          <td>
+                            {record.campaign
+                              ?.title ||
+                              record.locationName ||
+                              record.bloodRequest
+                                ?.patientName ||
+                              '—'}
+                          </td>
 
-                      const isVerified =
-                        Boolean(
-                          record.verifiedBy
-                        );
+                          <td>
+                            <Badge
+                              type={
+                                STATUS_BADGE[
+                                  record.status
+                                ] ||
+                                'neutral'
+                              }
+                            >
+                              {record.status ||
+                                'pending'}
+                            </Badge>
 
-                      const feedbackOpen =
-                        openFeedbackId ===
-                        recordId;
+                            {record.status ===
+                              'rejected' &&
+                              record.rejectionReason && (
+                                <div
+                                  className="muted"
+                                  style={{
+                                    marginTop:
+                                      4
+                                  }}
+                                >
+                                  {
+                                    record.rejectionReason
+                                  }
+                                </div>
+                              )}
+                          </td>
 
-                      return (
-                        <Fragment
-                          key={
-                            recordId
-                          }
-                        >
-                          <tr>
+                          {own && (
                             <td>
-                              {record.donationDate
-                                ? formatDate(
-                                    record.donationDate
-                                  )
-                                : '—'}
-                            </td>
-
-                            <td>
-                              <BloodBadge
-                                group={
-                                  record.bloodGroup
-                                }
-                              />
-                            </td>
-
-                            <td>
-                              {record.unitsDonated ??
-                                '—'}
-                            </td>
-
-                            <td>
-                              {record.locationName ||
-                                '—'}
-                            </td>
-
-                            <td>
-                              {record.notes ||
-                                '—'}
-                            </td>
-
-                            <td>
-                              {isVerified ? (
-                                <Badge type="ok">
-                                  Verified
-                                </Badge>
+                              {record.status ===
+                              'approved' ? (
+                                <button
+                                  type="button"
+                                  className="small secondary"
+                                  onClick={() =>
+                                    setOpenFeedbackId(
+                                      feedbackOpen
+                                        ? null
+                                        : record._id
+                                    )
+                                  }
+                                >
+                                  {feedbackOpen
+                                    ? 'Close'
+                                    : 'Give Feedback'}
+                                </button>
                               ) : (
-                                <Badge type="neutral">
-                                  Awaiting verification
-                                </Badge>
+                                <span className="muted">
+                                  Approval required
+                                </span>
                               )}
                             </td>
+                          )}
+                        </tr>
 
-                            {allowFeedback && (
-                              <td>
-                                {isVerified ? (
-                                  <button
-                                    type="button"
-                                    className="small secondary"
-                                    onClick={() =>
-                                      setOpenFeedbackId(
-                                        feedbackOpen
-                                          ? null
-                                          : recordId
-                                      )
-                                    }
-                                  >
-                                    {feedbackOpen
-                                      ? 'Close Feedback'
-                                      : 'Give Feedback'}
-                                  </button>
-                                ) : (
-                                  <span className="muted">
-                                    Awaiting verification
-                                  </span>
-                                )}
+                        {own &&
+                          record.status ===
+                            'approved' &&
+                          feedbackOpen && (
+                            <tr>
+                              <td
+                                colSpan="8"
+                              >
+                                <FeedbackPanel
+                                  targetType="donation"
+                                  targetId={
+                                    record._id
+                                  }
+                                />
                               </td>
-                            )}
-                          </tr>
-
-                          {allowFeedback &&
-                            isVerified &&
-                            feedbackOpen && (
-                              <tr>
-                                <td
-                                  colSpan="7"
-                                  className="bb-feedback-table-cell"
-                                >
-                                  <h3>
-                                    {t(
-                                      'feedback.donationTitle'
-                                    )}
-                                  </h3>
-
-                                  <p className="muted">
-                                    {t(
-                                      'feedback.donationSubtitle'
-                                    )}
-                                  </p>
-
-                                  <FeedbackPanel
-                                    targetType="donation"
-                                    targetId={
-                                      record._id
-                                    }
-                                  />
-                                </td>
-                              </tr>
-                            )}
-                        </Fragment>
-                      );
-                    }
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </>
+                            </tr>
+                          )}
+                      </Fragment>
+                    );
+                  }
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
       );
     };
 
   /*
   |--------------------------------------------------------------------------
-  | UI
+  | Render
   |--------------------------------------------------------------------------
   */
 
@@ -771,13 +976,13 @@ export default function DonationsPage() {
         title={t(
           'donations.title'
         )}
-        subtitle={t(
-          'donations.subtitle'
-        )}
+        subtitle="Submit donations, track approval status, and view verified donation history."
       />
 
       <Alert
-        message={error}
+        message={
+          error
+        }
         onDismiss={() =>
           setError('')
         }
@@ -785,77 +990,198 @@ export default function DonationsPage() {
 
       <Alert
         type="success"
-        message={notice}
+        message={
+          notice
+        }
         onDismiss={() =>
           setNotice('')
         }
       />
 
-      {/* --------------------------------------------------------------- */}
-      {/* DONOR-CAPABLE USER                                             */}
-      {/* --------------------------------------------------------------- */}
+      {/* ------------------------------------------------------------- */}
+      {/* DONOR SELF SUBMISSION                                        */}
+      {/* ------------------------------------------------------------- */}
 
       {canSelfDonate && (
-        <>
-          <div className="grid grid-2">
-            <Card
-              title="Log My Donation"
+        <div className="grid grid-2">
+          <Card title="Submit My Donation">
+            <p
+              className="muted"
+              style={{
+                marginTop:
+                  0
+              }}
             >
-              <p
-                className="muted"
-                style={{
-                  marginTop: 0
-                }}
-              >
-                Logging donation for:{' '}
+              Every donation is submitted as
+              <b> Pending </b>
+              and becomes official only after Admin approval.
+            </p>
 
-                <b>
-                  {user?.name}
-                </b>
+            <form
+              onSubmit={
+                handleSelfLog
+              }
+            >
+              <Field label="Donation Type">
+                <select
+                  value={
+                    selfForm
+                      .donationType
+                  }
+                  onChange={(e) =>
+                    setSelfForm(
+                      (
+                        current
+                      ) => ({
+                        ...current,
 
-                {(
-                  user?.donorPublicId ||
-                  user?.publicId ||
-                  user?.donorProfile
-                    ?.publicId
-                ) && (
-                  <>
-                    {' · '}
+                        donationType:
+                          e.target
+                            .value,
 
-                    {user?.donorPublicId ||
-                      user?.publicId ||
-                      user?.donorProfile
-                        ?.publicId}
-                  </>
-                )}
-              </p>
-
-              <form
-                onSubmit={
-                  handleSelfLog
-                }
-              >
-                <Field
-                  label={t(
-                    'donations.unitsDonated'
-                  )}
+                        campaignId:
+                          ''
+                      })
+                    )
+                  }
                 >
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0.5"
+                  <option value="regular">
+                    Regular Donation
+                  </option>
+
+                  <option value="campaign">
+                    Donation to a Campaign
+                  </option>
+                </select>
+              </Field>
+
+              {selfForm
+                .donationType ===
+                'campaign' && (
+                <Field label="Registered Campaign">
+                  <select
                     value={
-                      selfForm.unitsDonated
+                      selfForm
+                        .campaignId
                     }
-                    onChange={
-                      setSelf(
-                        'unitsDonated'
+                    onChange={(e) =>
+                      setSelfForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+
+                          campaignId:
+                            e.target
+                              .value
+                        })
                       )
                     }
                     required
-                  />
-                </Field>
+                  >
+                    <option value="">
+                      -- Select Campaign --
+                    </option>
 
+                    {campaigns.map(
+                      (
+                        item
+                      ) => (
+                        <option
+                          key={
+                            item.registrationId
+                          }
+                          value={
+                            item
+                              .campaign
+                              ?._id ||
+                            ''
+                          }
+                          disabled={
+                            !item.canSubmit
+                          }
+                        >
+                          {item
+                            .campaign
+                            ?.title ||
+                            'Campaign'}
+
+                          {' — '}
+
+                          {item
+                            .campaign
+                            ?.venue ||
+                            ''}
+
+                          {item.existingSubmission
+                            ? ` (${item.existingSubmission.status})`
+                            : !item.canSubmit
+                              ? ' (not currently open)'
+                              : ''}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </Field>
+              )}
+
+              <Field label="Donation Date">
+                <input
+                  type="date"
+                  value={
+                    selfForm
+                      .donationDate
+                  }
+                  onChange={(e) =>
+                    setSelfForm(
+                      (
+                        current
+                      ) => ({
+                        ...current,
+
+                        donationDate:
+                          e.target
+                            .value
+                      })
+                    )
+                  }
+                  required
+                />
+              </Field>
+
+              <Field
+                label={t(
+                  'donations.unitsDonated'
+                )}
+              >
+                <input
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={
+                    selfForm
+                      .unitsDonated
+                  }
+                  onChange={(e) =>
+                    setSelfForm(
+                      (
+                        current
+                      ) => ({
+                        ...current,
+
+                        unitsDonated:
+                          e.target
+                            .value
+                      })
+                    )
+                  }
+                  required
+                />
+              </Field>
+
+              {selfForm
+                .donationType ===
+                'regular' && (
                 <Field
                   label={t(
                     'donations.location'
@@ -863,85 +1189,90 @@ export default function DonationsPage() {
                 >
                   <input
                     value={
-                      selfForm.locationName
+                      selfForm
+                        .locationName
                     }
-                    onChange={
-                      setSelf(
-                        'locationName'
+                    onChange={(e) =>
+                      setSelfForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+
+                          locationName:
+                            e.target
+                              .value
+                        })
                       )
                     }
-                    placeholder="Hospital or Blood Bank name"
+                    placeholder="Hospital or Blood Bank"
                   />
                 </Field>
-
-                <Field
-                  label={t(
-                    'donations.notes'
-                  )}
-                >
-                  <input
-                    value={
-                      selfForm.notes
-                    }
-                    onChange={
-                      setSelf(
-                        'notes'
-                      )
-                    }
-                  />
-                </Field>
-
-                <button type="submit">
-                  Record My Donation
-                </button>
-              </form>
-            </Card>
-
-            <Card
-              title="My Donation History"
-            >
-              <p
-                className="muted"
-                style={{
-                  marginTop: 0
-                }}
-              >
-                Showing donation records associated with your donor profile.
-              </p>
-
-              <button
-                type="button"
-                className="secondary small"
-                onClick={
-                  loadMyHistory
-                }
-              >
-                Refresh History
-              </button>
-
-              {renderHistorySummary(
-                ownHistory,
-                {
-                  /*
-                   * Only own donation history gets donation feedback.
-                   */
-                  allowFeedback:
-                    true
-                }
               )}
-            </Card>
-          </div>
-        </>
+
+              <Field
+                label={t(
+                  'donations.notes'
+                )}
+              >
+                <input
+                  value={
+                    selfForm.notes
+                  }
+                  onChange={(e) =>
+                    setSelfForm(
+                      (
+                        current
+                      ) => ({
+                        ...current,
+
+                        notes:
+                          e.target
+                            .value
+                      })
+                    )
+                  }
+                />
+              </Field>
+
+              <button type="submit">
+                Submit for Approval
+              </button>
+            </form>
+          </Card>
+
+          <Card title="My Donation History">
+            <button
+              type="button"
+              className="secondary small"
+              onClick={
+                loadMyHistory
+              }
+            >
+              Refresh History
+            </button>
+
+            {renderHistory(
+              ownHistory,
+              {
+                own:
+                  true
+              }
+            )}
+          </Card>
+        </div>
       )}
 
-      {/* --------------------------------------------------------------- */}
-      {/* STAFF / ADMIN LOG FOR SOMEONE ELSE                             */}
-      {/* --------------------------------------------------------------- */}
+      {/* ------------------------------------------------------------- */}
+      {/* STAFF LOG                                                     */}
+      {/* ------------------------------------------------------------- */}
 
       {canLogForOther && (
-        <Card
-          title="Record Donation for a Donor"
-        >
+        <Card title="Log Donation for a Donor">
+          <p className="muted">
+            This submission will remain pending until an Admin approves it.
+          </p>
+
           <form
             onSubmit={
               handleStaffLog
@@ -950,11 +1281,20 @@ export default function DonationsPage() {
             <Field label="Donor ID">
               <input
                 value={
-                  staffForm.donorId
+                  staffForm
+                    .donorId
                 }
-                onChange={
-                  setStaff(
-                    'donorId'
+                onChange={(e) =>
+                  setStaffForm(
+                    (
+                      current
+                    ) => ({
+                      ...current,
+
+                      donorId:
+                        e.target
+                          .value
+                    })
                   )
                 }
                 placeholder="DON-XXXXXX"
@@ -962,77 +1302,303 @@ export default function DonationsPage() {
               />
             </Field>
 
-            <Field
-              label={t(
-                'donations.unitsDonated'
-              )}
-            >
+            <Field label="Donation Date">
               <input
-                type="number"
-                step="0.5"
-                min="0.5"
+                type="date"
                 value={
-                  staffForm.unitsDonated
+                  staffForm
+                    .donationDate
                 }
-                onChange={
-                  setStaff(
-                    'unitsDonated'
+                onChange={(e) =>
+                  setStaffForm(
+                    (
+                      current
+                    ) => ({
+                      ...current,
+
+                      donationDate:
+                        e.target
+                          .value
+                    })
                   )
                 }
                 required
               />
             </Field>
 
-            <Field
-              label={t(
-                'donations.location'
-              )}
-            >
+            <Field label="Units">
               <input
+                type="number"
+                min="0.5"
+                step="0.5"
                 value={
-                  staffForm.locationName
+                  staffForm
+                    .unitsDonated
                 }
-                onChange={
-                  setStaff(
-                    'locationName'
+                onChange={(e) =>
+                  setStaffForm(
+                    (
+                      current
+                    ) => ({
+                      ...current,
+
+                      unitsDonated:
+                        e.target
+                          .value
+                    })
                   )
                 }
-                placeholder="Hospital or Blood Bank name"
+                required
               />
             </Field>
 
-            <Field
-              label={t(
-                'donations.notes'
-              )}
-            >
+            <Field label="Location">
+              <input
+                value={
+                  staffForm
+                    .locationName
+                }
+                onChange={(e) =>
+                  setStaffForm(
+                    (
+                      current
+                    ) => ({
+                      ...current,
+
+                      locationName:
+                        e.target
+                          .value
+                    })
+                  )
+                }
+              />
+            </Field>
+
+            <Field label="Notes">
               <input
                 value={
                   staffForm.notes
                 }
-                onChange={
-                  setStaff(
-                    'notes'
+                onChange={(e) =>
+                  setStaffForm(
+                    (
+                      current
+                    ) => ({
+                      ...current,
+
+                      notes:
+                        e.target
+                          .value
+                    })
                   )
                 }
               />
             </Field>
 
             <button type="submit">
-              Record Verified Donation
+              Submit Donation
             </button>
           </form>
         </Card>
       )}
 
-      {/* --------------------------------------------------------------- */}
-      {/* LOOKUP ANOTHER DONOR                                           */}
-      {/* --------------------------------------------------------------- */}
+      {/* ------------------------------------------------------------- */}
+      {/* ADMIN APPROVAL QUEUE                                          */}
+      {/* ------------------------------------------------------------- */}
+
+      {isAdmin && (
+        <Card
+          title={`Pending Donation Approvals (${pendingApprovals.length})`}
+        >
+          <button
+            type="button"
+            className="secondary small"
+            onClick={
+              loadPending
+            }
+            style={{
+              marginBottom:
+                12
+            }}
+          >
+            Refresh
+          </button>
+
+          {pendingApprovals.length ===
+          0 ? (
+            <Empty>
+              No donations are waiting for approval.
+            </Empty>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    Record
+                  </th>
+
+                  <th>
+                    Donor
+                  </th>
+
+                  <th>
+                    Type
+                  </th>
+
+                  <th>
+                    Date
+                  </th>
+
+                  <th>
+                    Units
+                  </th>
+
+                  <th>
+                    Campaign / Request
+                  </th>
+
+                  <th>
+                    Submitted By
+                  </th>
+
+                  <th>
+                    Action
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {pendingApprovals.map(
+                  (
+                    record
+                  ) => {
+                    const donor =
+                      record.donor;
+
+                    const publicId =
+                      donor?.role ===
+                        'Donor'
+                        ? donor?.publicId
+                        : donor
+                            ?.donorProfile
+                            ?.publicId;
+
+                    return (
+                      <tr
+                        key={
+                          record._id
+                        }
+                      >
+                        <td>
+                          <b>
+                            {
+                              record.publicId
+                            }
+                          </b>
+                        </td>
+
+                        <td>
+                          <b>
+                            {donor?.name ||
+                              'Donor'}
+                          </b>
+
+                          <br />
+
+                          <span className="muted">
+                            {publicId ||
+                              ''}
+                          </span>
+                        </td>
+
+                        <td>
+                          {
+                            record.donationType
+                          }
+                        </td>
+
+                        <td>
+                          {formatDate(
+                            record.donationDate
+                          )}
+                        </td>
+
+                        <td>
+                          {
+                            record.unitsDonated
+                          }
+                        </td>
+
+                        <td>
+                          {record.campaign
+                            ?.title ||
+                            record.bloodRequest
+                              ?.patientName ||
+                            record.locationName ||
+                            '—'}
+                        </td>
+
+                        <td>
+                          {record
+                            .submittedBy
+                            ?.name ||
+                            '—'}
+
+                          <br />
+
+                          <span className="muted">
+                            {record
+                              .submittedBy
+                              ?.role ||
+                              ''}
+                          </span>
+                        </td>
+
+                        <td>
+                          <button
+                            type="button"
+                            className="small"
+                            onClick={() =>
+                              handleApprove(
+                                record
+                              )
+                            }
+                          >
+                            Approve
+                          </button>{' '}
+
+                          <button
+                            type="button"
+                            className="small secondary"
+                            onClick={() =>
+                              handleReject(
+                                record
+                              )
+                            }
+                          >
+                            Reject
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }
+                )}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* LOOKUP                                                        */}
+      {/* ------------------------------------------------------------- */}
 
       {canLookupOtherDonor && (
-        <Card
-          title="Look Up Donor History"
-        >
+        <Card title="Look Up Verified Donor History">
+          <p className="muted">
+            Only Admin-approved donations are shown when viewing another donor.
+          </p>
+
           <form
             onSubmit={
               handleLookup
@@ -1059,63 +1625,43 @@ export default function DonationsPage() {
           </form>
 
           {lookupTarget && (
-            <div
-              className="muted"
-              style={{
-                marginTop: 14
-              }}
-            >
+            <p className="muted">
               Viewing:{' '}
 
               <b>
-                {lookupTarget.name ||
-                  lookupTarget.publicId}
+                {
+                  lookupTarget.name
+                }
               </b>
 
-              {lookupTarget.name &&
-                lookupTarget.publicId && (
-                  <>
-                    {' '}
+              {' · '}
 
-                    (
-                    {
-                      lookupTarget.publicId
-                    }
-                    )
-                  </>
-                )}
-            </div>
+              {
+                lookupTarget.publicId
+              }
+            </p>
           )}
 
-          {renderHistorySummary(
+          {renderHistory(
             lookupHistory,
             {
-              /*
-               * Looking at someone else's records does NOT give feedback
-               * permission.
-               */
-              allowFeedback:
+              own:
                 false
             }
           )}
         </Card>
       )}
 
-      {/* --------------------------------------------------------------- */}
-      {/* PATIENT WITHOUT DONOR PROFILE                                  */}
-      {/* --------------------------------------------------------------- */}
+      {/* ------------------------------------------------------------- */}
+      {/* PLAIN PATIENT                                                 */}
+      {/* ------------------------------------------------------------- */}
 
       {user?.role ===
         'Patient' &&
         !isPatientDonor && (
           <Card title="Donation Access">
-            <p
-              className="muted"
-              style={{
-                margin: 0
-              }}
-            >
-              You are currently registered as a Patient only. Register as a blood donor from the Donors page to unlock your own donation logging and donation history.
+            <p className="muted">
+              Register as a blood donor from the Donors page to submit your own donations and access your donation history.
             </p>
           </Card>
         )}

@@ -20,6 +20,15 @@ export function Navbar() {
 
       <nav>
         <NavLink to="/donors">{t('nav.donors')}</NavLink>
+        <NavLink to="/leaderboard">
+          {t(
+            'nav.leaderboard',
+            {
+              defaultValue:
+                'Leaderboard'
+            }
+          )}
+        </NavLink>
         <NavLink to="/donations">{t('nav.donations')}</NavLink>
         <NavLink to="/requests">{t('nav.requests')}</NavLink>
         <NavLink to="/queue">{t('nav.queue')}</NavLink>

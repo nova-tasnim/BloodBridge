@@ -24,6 +24,30 @@ const STATUS_BADGE = {
 export default function CampaignsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isNativeDonor =
+  user?.role === 'Donor';
+
+const isPatientDonor =
+  user?.role === 'Patient' &&
+  Boolean(
+    user?.donorProfile
+  );
+
+const canRegisterForCampaign =
+  isNativeDonor ||
+  isPatientDonor;
+
+const canCreateCampaign =
+  [
+    'Hospital',
+    'BloodBank',
+    'Admin'
+  ].includes(
+    user?.role
+  );
+
+const canManageCampaigns =
+  canCreateCampaign;
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,7 +56,6 @@ export default function CampaignsPage() {
   const [regResult, setRegResult] = useState(null);
 
   const [form, setForm] = useState({
-    organizer: '',
     title: '',
     description: '',
     venue: '',
@@ -72,14 +95,18 @@ export default function CampaignsPage() {
 
     try {
       await campaignApi.create({
-        ...(user?.role === 'Admin' && form.organizer ? { organizer: form.organizer } : {}),
         title: form.title,
         description: form.description,
         venue: form.venue,
+      
         location: {
-          coordinates: [Number(form.lng), Number(form.lat)],
+          coordinates: [
+            Number(form.lng),
+            Number(form.lat)
+          ],
           address: form.address
         },
+      
         startDate: form.startDate,
         endDate: form.endDate,
         targetUnits: Number(form.targetUnits),
@@ -100,24 +127,49 @@ export default function CampaignsPage() {
     }
   };
 
-  const handleRegister = async (campaignId) => {
-    if (user?.role !== 'Donor' && user?.role !== 'Admin') {
-      setError(t('campaigns.donorLoginRequired', { defaultValue: 'You must be logged in as a Donor to register for a campaign.' }));
+const handleRegister =
+  async (campaignId) => {
+    if (
+      !canRegisterForCampaign
+    ) {
+      setError(
+        t(
+          'campaigns.donorLoginRequired',
+          {
+            defaultValue:
+              'You must be registered as a blood donor to join a campaign.'
+          }
+        )
+      );
+
       return;
     }
 
     setError('');
+    setNotice('');
     setRegResult(null);
 
     try {
-      const res = await campaignApi.register(campaignId);
+      const res =
+        await campaignApi.register(
+          campaignId
+        );
 
-      setRegResult(res.data);
-      setNotice(res.message);
+      setRegResult(
+        res.data
+      );
 
-      loadCampaigns();
+      setNotice(
+        res.message
+      );
+
+      await loadCampaigns();
     } catch (err) {
-      setError(err.message);
+      setError(
+        err?.response?.data
+          ?.message ||
+        err.message
+      );
     }
   };
 
@@ -129,6 +181,99 @@ export default function CampaignsPage() {
       setRegistrations(res);
     } catch (err) {
       setError(err.message);
+    }
+  };
+  const handleAttendance =
+  async (
+    registration,
+    donated = false
+  ) => {
+    try {
+      setError('');
+      setNotice('');
+
+      let unitsDonated =
+        registration.unitsDonated ||
+        1;
+
+      if (donated) {
+        const entered =
+          window.prompt(
+            'How many units were donated?',
+            String(
+              unitsDonated
+            )
+          );
+
+        if (
+          entered ===
+          null
+        ) {
+          return;
+        }
+
+        unitsDonated =
+          Number(
+            entered
+          );
+
+        if (
+          !Number.isFinite(
+            unitsDonated
+          ) ||
+          unitsDonated <
+            0.5
+        ) {
+          setError(
+            'Donation units must be at least 0.5.'
+          );
+
+          return;
+        }
+      }
+
+      const res =
+        await campaignApi
+          .updateAttendance(
+            registration._id,
+            {
+              attended:
+                true,
+
+              donated,
+
+              ...(donated
+                ? {
+                    unitsDonated
+                  }
+                : {})
+            }
+          );
+
+      setNotice(
+        res.message ||
+        'Campaign registration updated'
+      );
+
+      /*
+       * Refresh currently opened registration list.
+       */
+      const campaignId =
+        registration.campaign;
+
+      if (campaignId) {
+        await handleViewRegistrations(
+          campaignId
+        );
+      }
+
+      await loadCampaigns();
+    } catch (err) {
+      setError(
+        err?.response?.data
+          ?.message ||
+        err.message
+      );
     }
   };
 
@@ -190,111 +335,115 @@ export default function CampaignsPage() {
           </button>
         </Card>
       )}
+      {canCreateCampaign && (
 
-      <Card title={t('campaigns.createBloodDrive')}>
-        <form onSubmit={handleCreate}>
-          {user?.role === 'Admin' ? (
-            <Field label={t('campaigns.organizerId')}>
-              <input
-                value={form.organizer}
-                onChange={set('organizer')}
-                placeholder="Admin override: enter organizer User ID"
-              />
-            </Field>
-          ) : (
-            <div style={{ marginBottom: 16, fontSize: 14 }} className="muted">
-              {t('campaigns.organizingAs', { defaultValue: 'Organizing campaign as:' })}{' '}
+        <Card title={t('campaigns.createBloodDrive')}>
+          <form onSubmit={handleCreate}>
+            <div
+              style={{
+                marginBottom: 16,
+                fontSize: 14
+              }}
+              className="muted"
+            >
+              {t('campaigns.organizingAs', {
+                defaultValue: 'Organizing campaign as:'
+              })}{' '}
+            
               <b>{user?.name}</b>{' '}
-              <span className="badge neutral" style={{ marginLeft: 6 }}>
+            
+              <span
+                className="badge neutral"
+                style={{ marginLeft: 6 }}
+              >
                 {user?.role}
               </span>
             </div>
-          )}
-
-          <div className="form-row">
-            <Field label={t('campaigns.titleField')}>
+  
+            <div className="form-row">
+              <Field label={t('campaigns.titleField')}>
+                <input
+                  value={form.title}
+                  onChange={set('title')}
+                  required
+                />
+              </Field>
+            </div>
+  
+            <Field label={t('campaigns.description')}>
               <input
-                value={form.title}
-                onChange={set('title')}
-                required
+                value={form.description}
+                onChange={set('description')}
               />
             </Field>
-          </div>
-
-          <Field label={t('campaigns.description')}>
-            <input
-              value={form.description}
-              onChange={set('description')}
-            />
-          </Field>
-
-          <div className="form-row">
-            <Field label={t('campaigns.venue')}>
-              <input
-                value={form.venue}
-                onChange={set('venue')}
-                required
-              />
-            </Field>
-
-            <Field label={t('campaigns.area')}>
-              <input
-                value={form.address}
-                onChange={set('address')}
-              />
-            </Field>
-          </div>
-
-          <div className="form-row">
-            <Field label={t('campaigns.latitude')}>
-              <input
-                value={form.lat}
-                onChange={set('lat')}
-                required
-              />
-            </Field>
-
-            <Field label={t('campaigns.longitude')}>
-              <input
-                value={form.lng}
-                onChange={set('lng')}
-                required
-              />
-            </Field>
-
-            <Field label={t('campaigns.startDate')}>
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={set('startDate')}
-                required
-              />
-            </Field>
-
-            <Field label={t('campaigns.endDate')}>
-              <input
-                type="date"
-                value={form.endDate}
-                onChange={set('endDate')}
-                required
-              />
-            </Field>
-
-            <Field label={t('campaigns.targetUnits')}>
-              <input
-                type="number"
-                value={form.targetUnits}
-                onChange={set('targetUnits')}
-              />
-            </Field>
-          </div>
-
-          <button type="submit">
-            {t('campaigns.createDrive')}
-          </button>
-        </form>
-      </Card>
-
+  
+            <div className="form-row">
+              <Field label={t('campaigns.venue')}>
+                <input
+                  value={form.venue}
+                  onChange={set('venue')}
+                  required
+                />
+              </Field>
+  
+              <Field label={t('campaigns.area')}>
+                <input
+                  value={form.address}
+                  onChange={set('address')}
+                />
+              </Field>
+            </div>
+  
+            <div className="form-row">
+              <Field label={t('campaigns.latitude')}>
+                <input
+                  value={form.lat}
+                  onChange={set('lat')}
+                  required
+                />
+              </Field>
+  
+              <Field label={t('campaigns.longitude')}>
+                <input
+                  value={form.lng}
+                  onChange={set('lng')}
+                  required
+                />
+              </Field>
+  
+              <Field label={t('campaigns.startDate')}>
+                <input
+                  type="date"
+                  value={form.startDate}
+                  onChange={set('startDate')}
+                  required
+                />
+              </Field>
+  
+              <Field label={t('campaigns.endDate')}>
+                <input
+                  type="date"
+                  value={form.endDate}
+                  onChange={set('endDate')}
+                  required
+                />
+              </Field>
+  
+              <Field label={t('campaigns.targetUnits')}>
+                <input
+                  type="number"
+                  value={form.targetUnits}
+                  onChange={set('targetUnits')}
+                />
+              </Field>
+            </div>
+  
+            <button type="submit">
+              {t('campaigns.createDrive')}
+            </button>
+          </form>
+        </Card>
+      )}
       <Card title={`${t('campaigns.campaigns')} (${campaigns.length})`}>
         {loading ? (
           <Loading />
@@ -353,22 +502,50 @@ export default function CampaignsPage() {
                     </div>
                   </td>
 
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <button
-                      className="small"
-                      onClick={() => handleRegister(c._id)}
-                    >
-                      {t('campaigns.register')}
-                    </button>{' '}
-
-                    <button
-                      className="small secondary"
-                      onClick={() =>
-                        handleViewRegistrations(c._id)
-                      }
-                    >
-                      {t('campaigns.view')}
-                    </button>
+                  <td
+                    style={{
+                      whiteSpace:
+                        'nowrap'
+                    }}
+                  >
+                    {canRegisterForCampaign && (
+                      <>
+                        <button
+                          className="small"
+                          onClick={() =>
+                            handleRegister(
+                              c._id
+                            )
+                          }
+                        >
+                          {t(
+                            'campaigns.register'
+                          )}
+                        </button>{' '}
+                      </>
+                    )}
+                  
+                    {canManageCampaigns && (
+                      <button
+                        className="small secondary"
+                        onClick={() =>
+                          handleViewRegistrations(
+                            c._id
+                          )
+                        }
+                      >
+                        {t(
+                          'campaigns.view'
+                        )}
+                      </button>
+                    )}
+                  
+                    {!canRegisterForCampaign &&
+                      !canManageCampaigns && (
+                        <span className="muted">
+                          —
+                        </span>
+                      )}
                   </td>
                 </tr>
               ))}
@@ -393,10 +570,19 @@ export default function CampaignsPage() {
                   <th>{t('campaigns.group')}</th>
                   <th>{t('campaigns.donations')}</th>
                   <th>{t('campaigns.registeredDate')}</th>
-                  <th>{t('campaigns.attended')}</th>
+                  <th>
+                    {t('campaigns.attended')}
+                  </th>
+                  
+                  <th>
+                    Donation Record
+                  </th>
+                  
+                  <th>
+                    Action
+                  </th>
                 </tr>
               </thead>
-
               <tbody>
                 {registrations.data.map((r) => (
                   <tr key={r._id}>
@@ -407,17 +593,19 @@ export default function CampaignsPage() {
                         {r.donor?.phone}
                       </span>
                     </td>
-
+              
                     <td>
                       <BloodBadge group={r.donor?.bloodGroup} />
                     </td>
-
-                    <td>{r.donor?.totalDonations}</td>
-
+              
+                    <td>
+                      {r.donor?.totalDonations}
+                    </td>
+              
                     <td className="muted">
                       {formatDate(r.registeredAt)}
                     </td>
-
+              
                     <td>
                       {r.attended ? (
                         <Badge type="ok">
@@ -427,6 +615,83 @@ export default function CampaignsPage() {
                         <Badge type="neutral">
                           {t('campaigns.pending')}
                         </Badge>
+                      )}
+                    </td>
+              
+                    {/* Donation record */}
+                    <td>
+                      {r.donationRecord ? (
+                        <div>
+                          <Badge type="ok">
+                            Recorded
+                          </Badge>
+              
+                          <div
+                            className="muted"
+                            style={{
+                              marginTop: 4
+                            }}
+                          >
+                            {r.donationRecord.publicId}
+                            {' · '}
+                            {r.donationRecord.unitsDonated}{' '}
+                            unit(s)
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="muted">
+                          —
+                        </span>
+                      )}
+                    </td>
+              
+                    {/* Actions */}
+                    <td>
+                      {!r.attended && (
+                        <>
+                          <button
+                            type="button"
+                            className="small secondary"
+                            onClick={() =>
+                              handleAttendance(
+                                r,
+                                false
+                              )
+                            }
+                          >
+                            Mark Attended
+                          </button>{' '}
+                        </>
+                      )}
+              
+                      {!r.donationRecord && (
+                        <button
+                          type="button"
+                          className="small"
+                          onClick={() =>
+                            handleAttendance(
+                              r,
+                              true
+                            )
+                          }
+                        >
+                          Record Donation
+                        </button>
+                      )}
+              
+                      {r.donationRecord && (
+                        <button
+                          type="button"
+                          className="small secondary"
+                          onClick={() =>
+                            handleAttendance(
+                              r,
+                              true
+                            )
+                          }
+                        >
+                          Correct Units
+                        </button>
                       )}
                     </td>
                   </tr>

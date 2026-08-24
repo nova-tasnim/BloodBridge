@@ -1,5 +1,9 @@
-const express = require('express');
-const router = express.Router();
+const express =
+  require('express');
+
+const router =
+  express.Router();
+
 const {
   createBloodDrive,
   getCampaigns,
@@ -9,24 +13,129 @@ const {
   registerForCampaign,
   getRegistrations,
   updateAttendance
-} = require('../controllers/campaignController');
-const { protect, authorize } = require('../middleware/auth');
+} =
+  require('../controllers/campaignController');
 
-router.use(protect);
+const {
+  protect,
+  authorize,
+  requireDonorCapability
+} =
+  require('../middleware/auth');
 
-router.patch('/registrations/:registrationId', authorize('Hospital', 'BloodBank', 'Admin'), updateAttendance);
+router.use(
+  protect
+);
 
-router.route('/')
-  .post(authorize('Hospital', 'BloodBank', 'Admin'), createBloodDrive)
-  .get(getCampaigns);
+/*
+|--------------------------------------------------------------------------
+| Attendance
+|--------------------------------------------------------------------------
+|
+| Actual ownership is checked by controller/service.
+|--------------------------------------------------------------------------
+*/
 
-// Authenticated donor 1-click campaign registration (restricted to Donors)
-router.post('/:id/register', authorize('Donor', 'Admin'), registerForCampaign);
-router.get('/:id/registrations', authorize('Hospital', 'BloodBank', 'Admin'), getRegistrations);
+router.patch(
+  '/registrations/:registrationId',
 
-router.route('/:id')
-  .get(getCampaignById)
-  .put(authorize('Hospital', 'BloodBank', 'Admin'), updateCampaign)
-  .delete(authorize('Hospital', 'BloodBank', 'Admin'), deleteCampaign);
+  authorize(
+    'Hospital',
+    'BloodBank',
+    'Admin'
+  ),
 
-module.exports = router;
+  updateAttendance
+);
+
+/*
+|--------------------------------------------------------------------------
+| Campaign list/create
+|--------------------------------------------------------------------------
+*/
+
+router
+  .route('/')
+
+  .post(
+    authorize(
+      'Hospital',
+      'BloodBank',
+      'Admin'
+    ),
+
+    createBloodDrive
+  )
+
+  .get(
+    getCampaigns
+  );
+
+/*
+|--------------------------------------------------------------------------
+| DONOR REGISTRATION
+
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  '/:id/register',
+
+  requireDonorCapability,
+
+  registerForCampaign
+);
+
+/*
+|--------------------------------------------------------------------------
+| Registrations
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  '/:id/registrations',
+
+  authorize(
+    'Hospital',
+    'BloodBank',
+    'Admin'
+  ),
+
+  getRegistrations
+);
+
+/*
+|--------------------------------------------------------------------------
+| Campaign details/manage
+|--------------------------------------------------------------------------
+*/
+
+router
+  .route('/:id')
+
+  .get(
+    getCampaignById
+  )
+
+  .put(
+    authorize(
+      'Hospital',
+      'BloodBank',
+      'Admin'
+    ),
+
+    updateCampaign
+  )
+
+  .delete(
+    authorize(
+      'Hospital',
+      'BloodBank',
+      'Admin'
+    ),
+
+    deleteCampaign
+  );
+
+module.exports =
+  router;

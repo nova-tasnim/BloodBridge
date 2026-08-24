@@ -11,6 +11,49 @@ const {
 | Authentication
 |--------------------------------------------------------------------------
 */
+/*
+|--------------------------------------------------------------------------
+| Institution verification
+|--------------------------------------------------------------------------
+|
+| Hospital and BloodBank accounts may log in before Admin approval,
+| but trusted institution actions require verification.
+|
+*/
+
+function isUnverifiedInstitution(user) {
+  return Boolean(
+    user &&
+    [
+      'Hospital',
+      'BloodBank'
+    ].includes(user.role) &&
+    user.isVerified !== true
+  );
+}
+
+function requireVerifiedInstitution(
+  req,
+  res,
+  next
+) {
+  if (
+    isUnverifiedInstitution(
+      req.user
+    )
+  ) {
+    return res
+      .status(403)
+      .json({
+        success: false,
+
+        message:
+          'Your institution account is awaiting Admin verification'
+      });
+  }
+
+  next();
+}
 
 async function protect(req, res, next) {
   const header = req.headers.authorization;
@@ -59,24 +102,52 @@ async function protect(req, res, next) {
 | Role authorization
 |--------------------------------------------------------------------------
 */
-
-function authorize(...allowedRoles) {
-  return (req, res, next) => {
+function authorize(
+  ...allowedRoles
+) {
+  return (
+    req,
+    res,
+    next
+  ) => {
     if (
       !req.user ||
-      !allowedRoles.includes(req.user.role)
+      !allowedRoles.includes(
+        req.user.role
+      )
     ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          'Forbidden — insufficient role permissions'
-      });
+      return res
+        .status(403)
+        .json({
+          success: false,
+
+          message:
+            'Forbidden — insufficient role permissions'
+        });
+    }
+
+    /*
+     * If an institution is using an institution-only
+     * privilege, it must first be verified by Admin.
+     */
+    if (
+      isUnverifiedInstitution(
+        req.user
+      )
+    ) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+
+          message:
+            'Your institution account is awaiting Admin verification'
+        });
     }
 
     next();
   };
 }
-
 /*
 |--------------------------------------------------------------------------
 | Require donor capability
@@ -154,8 +225,25 @@ function donorOwnerOrRoles(
        */
       if (
         req.user &&
-        allowedRoles.includes(req.user.role)
+        allowedRoles.includes(
+          req.user.role
+        )
       ) {
+        if (
+          isUnverifiedInstitution(
+            req.user
+          )
+        ) {
+          return res
+            .status(403)
+            .json({
+              success: false,
+      
+              message:
+                'Your institution account is awaiting Admin verification'
+            });
+        }
+      
         return next();
       }
 
@@ -249,5 +337,6 @@ module.exports = {
   requireDonorCapability,
   ownerOrRoles,
   donorOwnerOrRoles,
-  optionalProtect
+  optionalProtect,
+  requireVerifiedInstitution
 };

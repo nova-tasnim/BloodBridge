@@ -43,7 +43,10 @@ export default function AssistantChat() {
 
     try {
       const language = i18n.language === 'bn' ? 'Bangla' : 'English';
-      const effectiveBloodGroup = user?.bloodGroup || bloodGroup;
+      const effectiveBloodGroup =
+       user?.donorProfile?.bloodGroup ||
+       user?.bloodGroup ||
+       bloodGroup;
       const res = await assistantApi.chat({ message: text, language, bloodGroup: effectiveBloodGroup });
       const payload = res?.data || res;
       const reply = payload?.response || t('assistant.errorReply');
@@ -96,12 +99,15 @@ export default function AssistantChat() {
                 <div className="bb-chat-bloodgroup-prompt">
                   <span>{t('assistant.selectBloodGroup')}</span>
                   <div className="bb-chat-chip-row">
-                    {user?.bloodGroup ? (
+                    {(
+                      user?.donorProfile?.bloodGroup ||
+                      user?.bloodGroup
+                    ) ? (
                       <button
                         className="bb-chat-chip bb-chat-chip-blood active"
                         type="button"
                       >
-                        {user.bloodGroup}
+                        {(user?.donorProfile?.bloodGroup || user?.bloodGroup)}
                       </button>
                     ) : (
                       BLOOD_GROUPS.map((g) => (

@@ -12,16 +12,79 @@ export const donorApi = {
   toggleAvailability: (id, isAvailable) =>
     api.patch(`/donors/${id}/availability`, { isAvailable })
 };
-
 export const donationsApi = {
-  create: (data) => api.post('/donations', data),
-  // Authenticated donor's own history
-  getMyHistory: () => api.get('/donations/me'),
-  // Authorized lookup by donor ID (admin / blood bank)
-  getDonorHistory: (donorId) => api.get(`/donations/donor/${donorId}`),
-  getById: (id) => api.get(`/donations/${id}`)
-};
+  /*
+   * Submit pending donation.
+   */
+  create: (
+    data
+  ) =>
+    api.post(
+      '/donations',
+      data
+    ),
 
+  /*
+   * Own history:
+   * pending + approved + rejected.
+   */
+  getMyHistory: () =>
+    api.get(
+      '/donations/me'
+    ),
+
+  /*
+   * Campaigns this donor registered for.
+   */
+  myCampaigns: () =>
+    api.get(
+      '/donations/my-campaigns'
+    ),
+
+  /*
+   * Another donor:
+   * approved history only.
+   */
+  getDonorHistory: (
+    donorId
+  ) =>
+    api.get(
+      `/donations/donor/${donorId}`
+    ),
+
+  getById: (
+    id
+  ) =>
+    api.get(
+      `/donations/${id}`
+    ),
+
+  /*
+   * Admin approval queue.
+   */
+  pending: () =>
+    api.get(
+      '/donations/pending'
+    ),
+
+  approve: (
+    id
+  ) =>
+    api.patch(
+      `/donations/${id}/approve`
+    ),
+
+  reject: (
+    id,
+    reason
+  ) =>
+    api.patch(
+      `/donations/${id}/reject`,
+      {
+        reason
+      }
+    )
+};
 export const requestApi = {
   list: (params) => api.get('/requests', { params }),
   getById: (id) => api.get(`/requests/${id}`),
@@ -85,16 +148,67 @@ export const inventoryApi = {
 };
 
 export const campaignApi = {
-  list: (params) => api.get('/campaigns', { params }),
-  getById: (id) => api.get(`/campaigns/${id}`),
-  create: (payload) => api.post('/campaigns', payload),
-  remove: (id) => api.delete(`/campaigns/${id}`),
-  // Phase 2A: 1-click registration without requiring donorId
-  register: (id, payloadOrDonorId = {}) => {
-    const payload = typeof payloadOrDonorId === 'string' ? { donorId: payloadOrDonorId } : payloadOrDonorId;
-    return api.post(`/campaigns/${id}/register`, payload);
-  },
-  registrations: (id) => api.get(`/campaigns/${id}/registrations`)
+  list: (params) =>
+    api.get(
+      '/campaigns',
+      {
+        params
+      }
+    ),
+
+  getById: (id) =>
+    api.get(
+      `/campaigns/${id}`
+    ),
+
+  create: (payload) =>
+    api.post(
+      '/campaigns',
+      payload
+    ),
+
+  update: (
+    id,
+    payload
+  ) =>
+    api.put(
+      `/campaigns/${id}`,
+      payload
+    ),
+
+  remove: (id) =>
+    api.delete(
+      `/campaigns/${id}`
+    ),
+
+  /*
+   * Backend derives donor from authenticated identity.
+   *
+   * No donorId should normally be supplied.
+   */
+  register: (
+    id
+  ) =>
+    api.post(
+      `/campaigns/${id}/register`,
+      {}
+    ),
+
+  registrations: (
+    id
+  ) =>
+    api.get(
+      `/campaigns/${id}/registrations`
+    ),
+
+  updateAttendance: (
+    registrationId,
+    payload
+  ) =>
+    api.patch(
+      `/campaigns/registrations/${registrationId}`,
+      payload
+    )
 };
 
 export const compatibilityApi = {
@@ -149,23 +263,125 @@ export const notificationApi = {
 };
 
 export const feedbackApi = {
-  // Submit feedback
+  /*
+   * Submit feedback.
+   */
   create: (payload) =>
-    api.post('/feedback', payload),
+    api.post(
+      '/feedback',
+      payload
+    ),
 
-  // Get all feedback for a request
-  forRequest: (requestId) =>
-    api.get(`/feedback/target/${requestId}`),
+  /*
+   * Feedback attached to a request.
+   */
+  forRequest: (
+    requestId
+  ) =>
+    api.get(
+      `/feedback/target/${requestId}`
+    ),
 
-  // Get all feedback for a donation
-  forDonation: (donationId) =>
-    api.get(`/feedback/target/${donationId}`),
+  /*
+   * Feedback attached to a donation.
+   */
+  forDonation: (
+    donationId
+  ) =>
+    api.get(
+      `/feedback/target/${donationId}`
+    ),
 
-  // Get average feedback for any target
-  average: (targetId) =>
-    api.get(`/feedback/target/${targetId}/average`),
+  /*
+   * Average rating.
+   */
+  average: (
+    targetId
+  ) =>
+    api.get(
+      `/feedback/target/${targetId}/average`
+    ),
 
-  // Recent platform feedback
-  recent: (params) =>
-    api.get('/feedback/recent', { params })
+  /*
+   * Admin moderation feed.
+   */
+  recent: (
+    params
+  ) =>
+    api.get(
+      '/feedback/recent',
+      {
+        params
+      }
+    ),
+
+  /*
+   * Admin moderation.
+   */
+  remove: (
+    feedbackId
+  ) =>
+    api.delete(
+      `/feedback/${feedbackId}`
+    )
+};
+export const translationApi = {
+  /*
+   * Public runtime resources.
+   */
+  resources: () =>
+    api.get(
+      '/translations/resources'
+    ),
+
+  /*
+   * Admin management.
+   */
+  list: (params) =>
+    api.get(
+      '/translations',
+      {
+        params
+      }
+    ),
+
+  create: (payload) =>
+    api.post(
+      '/translations',
+      payload
+    ),
+
+  update: (
+    id,
+    payload
+  ) =>
+    api.put(
+      `/translations/${id}`,
+      payload
+    ),
+
+  remove: (id) =>
+    api.delete(
+      `/translations/${id}`
+    )
+};
+export const badgeApi = {
+  leaderboard: () =>
+    api.get(
+      '/badges/leaderboard'
+    ),
+
+  donor: (
+    donorId
+  ) =>
+    api.get(
+      `/badges/donor/${donorId}`
+    ),
+
+  refresh: (
+    donorId
+  ) =>
+    api.post(
+      `/badges/donor/${donorId}/check`
+    )
 };

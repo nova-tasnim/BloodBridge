@@ -52,23 +52,69 @@ async function addStock(payload) {
 /**
  * Removes units from a specific inventory line (e.g. when blood is issued).
  */
-async function consumeStock(inventoryId, units) {
-  const item = await Inventory.findById(inventoryId);
-  if (!item) throw notFound('Inventory item not found.');
+async function consumeStock(
+  inventoryId,
+  units
+) {
+  const item =
+    await Inventory.findById(
+      inventoryId
+    );
 
-  const amount = Number(units);
-  if (!amount || amount <= 0) throw badRequest('units must be greater than zero.');
-  if (amount > item.unitsAvailable) {
+  if (!item) {
+    throw notFound(
+      'Inventory item not found.'
+    );
+  }
+
+  /*
+   * A deleted/inactive inventory batch
+   * must never be issued.
+   */
+  if (!item.isActive) {
+    throw badRequest(
+      'Cannot issue blood from an inactive inventory batch.'
+    );
+  }
+
+  /*
+   * Expired blood must never be issued,
+   * even through a manually crafted API request.
+   */
+  if (item.isExpired) {
+    throw badRequest(
+      'Cannot issue blood from an expired inventory batch.'
+    );
+  }
+
+  const amount =
+    Number(units);
+
+  if (
+    !amount ||
+    amount <= 0
+  ) {
+    throw badRequest(
+      'units must be greater than zero.'
+    );
+  }
+
+  if (
+    amount >
+    item.unitsAvailable
+  ) {
     throw badRequest(
       `Cannot issue ${amount} unit(s); only ${item.unitsAvailable} available.`
     );
   }
 
-  item.unitsAvailable -= amount;
+  item.unitsAvailable -=
+    amount;
+
   await item.save();
+
   return item;
 }
-
 /**
  * Aggregates total units per blood group for one blood bank,
  * flagging any group that has fallen below its threshold.

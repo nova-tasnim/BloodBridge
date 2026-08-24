@@ -1,15 +1,32 @@
-const DonationRecord = require('../models/DonationRecord');
+const DonationRecord =
+  require('../models/DonationRecord');
+
+const {
+  User
+} =
+  require('../models/User');
 
 const {
   recordDonation,
+  approveDonation,
+  rejectDonation,
+  getPendingDonations,
   getDonationHistory,
   getDonationStats,
+  getRegisteredCampaignsForDonor,
   resolveDonor
-} = require('../services/donationService');
+} =
+  require('../services/donationService');
 
 const {
   hasDonorCapability
-} = require('../services/donorIdentityService');
+} =
+  require('../services/donorIdentityService');
+
+const {
+  notifyUser
+} =
+  require('../services/notificationService');
 
 /*
 |--------------------------------------------------------------------------
@@ -17,43 +34,85 @@ const {
 |--------------------------------------------------------------------------
 */
 
-/*
- * Hospital / BloodBank / Admin may record a donation
- * for another donor.
- */
-function canLogForAnotherUser(user) {
-  if (!user) {
-    return false;
-  }
+function canLogForAnotherUser(
+  user
+) {
+  return Boolean(
+    user &&
+    [
+      'Hospital',
+      'BloodBank',
+      'Admin'
+    ].includes(
+      user.role
+    )
+  );
+}
 
-  return [
-    'Hospital',
-    'BloodBank',
-    'Admin'
-  ].includes(user.role);
+function canLookupOtherDonorHistory(
+  user
+) {
+  return Boolean(
+    user &&
+    [
+      'Patient',
+      'Hospital',
+      'BloodBank',
+      'Admin'
+    ].includes(
+      user.role
+    )
+  );
 }
 
 /*
- * According to your capability matrix:
- *
- * Native Donor         -> cannot inspect another donor
- * Patient              -> can
- * Patient + donorProfile -> can
- * Hospital             -> can
- * BloodBank            -> can
- * Admin                -> can
- */
-function canLookupOtherDonorHistory(user) {
-  if (!user) {
-    return false;
-  }
+|--------------------------------------------------------------------------
+| Notify Admins of pending donation
+|--------------------------------------------------------------------------
+*/
 
-  return [
-    'Patient',
-    'Hospital',
-    'BloodBank',
-    'Admin'
-  ].includes(user.role);
+async function notifyAdmins(
+  record
+) {
+  try {
+    const admins =
+      await User.find({
+        role:
+          'Admin',
+
+        isActive:
+          true
+      }).select(
+        '_id'
+      );
+
+    await Promise.allSettled(
+      admins.map(
+        (admin) =>
+          notifyUser({
+            userId:
+              admin._id,
+
+            type:
+              'status_update',
+
+            subject:
+              'BloodBridge — Donation Awaiting Approval',
+
+            message:
+              `Donation ${record.publicId} is waiting for Admin approval.`,
+
+            eventKey:
+              `donation-pending:${record._id}:${admin._id}`
+          })
+      )
+    );
+  } catch (err) {
+    console.error(
+      'Admin donation notification failed:',
+      err.message
+    );
+  }
 }
 
 /*
@@ -61,454 +120,644 @@ function canLookupOtherDonorHistory(user) {
 | POST /api/donations
 |--------------------------------------------------------------------------
 |
-| Native Donor:
-|   self-log only
-|
-| Patient + donorProfile:
-|   self-log only
-|
-| Normal Patient:
-|   cannot log donations
-|
-| Hospital / BloodBank / Admin:
-|   can record a donation for another donor
+| Every permitted submission starts PENDING.
 |--------------------------------------------------------------------------
 */
 
-exports.createDonation = async (req, res) => {
-  try {
-    const user = req.user;
-    const body = req.body || {};
+exports.createDonation =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const user =
+        req.user;
 
-    let donorId = null;
+      const body =
+        req.body ||
+        {};
 
-    /*
-    |--------------------------------------------------------------------------
-    | Donor-capable user -> SELF LOG
-    |--------------------------------------------------------------------------
-    */
+      let donorId =
+        null;
 
-    if (hasDonorCapability(user)) {
       /*
-       * A donor may not pretend to log for another donor.
-       *
-       * Normally the frontend should omit donorId completely.
-       *
-       * If donorId is supplied anyway, it must resolve back to
-       * the currently logged-in user's own donor identity.
-       */
-      if (
-        body.donorId &&
-        String(body.donorId).trim() !== ''
-      ) {
-        const targetDonor = await resolveDonor(
-          body.donorId
-        );
+      |--------------------------------------------------------------------------
+      | Donor-capable user -> self
+      |--------------------------------------------------------------------------
+      */
 
+      if (
+        hasDonorCapability(
+          user
+        )
+      ) {
         if (
-          !targetDonor ||
-          targetDonor._id.toString() !==
-            user._id.toString()
+          body.donorId &&
+          String(
+            body.donorId
+          ).trim()
         ) {
-          return res.status(403).json({
-            success: false,
-            message:
-              'You may only log donations for your own donor profile'
-          });
+          const target =
+            await resolveDonor(
+              body.donorId
+            );
+
+          if (
+            !target ||
+            String(
+              target._id
+            ) !==
+            String(
+              user._id
+            )
+          ) {
+            return res
+              .status(403)
+              .json({
+                success:
+                  false,
+
+                message:
+                  'You may only submit donations for your own donor profile'
+              });
+          }
+        }
+
+        donorId =
+          user._id;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Staff/Admin -> another donor
+      |--------------------------------------------------------------------------
+      */
+
+      else if (
+        canLogForAnotherUser(
+          user
+        )
+      ) {
+        donorId =
+          body.donorId;
+
+        if (!donorId) {
+          return res
+            .status(400)
+            .json({
+              success:
+                false,
+
+              message:
+                'Donor ID is required when logging a donation for another donor'
+            });
         }
       }
 
-      donorId = user._id;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Hospital / BloodBank / Admin -> LOG FOR ANOTHER DONOR
-    |--------------------------------------------------------------------------
-    */
-
-    else if (canLogForAnotherUser(user)) {
-      donorId = body.donorId;
-
-      if (!donorId) {
-        return res.status(400).json({
-          success: false,
-          message:
-            'Donor ID is required when recording a donation for another donor'
-        });
-      }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Ordinary Patient -> forbidden
-    |--------------------------------------------------------------------------
-    */
-
-    else {
-      return res.status(403).json({
-        success: false,
-        message:
-          'You are not authorized to record donations'
-      });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Validate units
-    |--------------------------------------------------------------------------
-    */
-
-    const units = Number(body.unitsDonated);
-
-    if (
-      !Number.isFinite(units) ||
-      units < 0.5
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          'Units donated must be at least 0.5'
-      });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Determine verification behavior
-    |--------------------------------------------------------------------------
-    |
-    | Self-log:
-    |   verifiedBy = null
-    |
-    | Hospital/BloodBank/Admin log:
-    |   verifiedBy = current user
-    |
-    | This lets institutional/admin logs count as verified records.
-    |--------------------------------------------------------------------------
-    */
-
-    const verifiedBy =
-      canLogForAnotherUser(user)
-        ? user._id
-        : null;
-
-    /*
-    |--------------------------------------------------------------------------
-    | Record donation
-    |--------------------------------------------------------------------------
-    */
-
-    const record = await recordDonation({
-      donorId,
-
-      bloodRequestId:
-        body.bloodRequestId || null,
-
       /*
-       * Keep the explicit bloodBankId if one is supplied.
-       *
-       * We are no longer looking up a separate BloodBank profile here,
-       * because donor recording authorization is already based on the
-       * logged-in User role.
-       */
-      bloodBankId:
-        body.bloodBankId || null,
+      |--------------------------------------------------------------------------
+      | Plain Patient
+      |--------------------------------------------------------------------------
+      */
 
-      donationDate:
-        body.donationDate || new Date(),
+      else {
+        return res
+          .status(403)
+          .json({
+            success:
+              false,
 
-      unitsDonated:
-        units,
+            message:
+              'You are not authorized to log donations'
+          });
+      }
 
-      locationName:
-        body.locationName || '',
+      const donationType =
+        body.donationType ||
+        'regular';
 
-      notes:
-        body.notes || '',
+      const record =
+        await recordDonation({
+          donorId,
 
-      verifiedBy
-    });
+          donationType,
 
-    return res.status(201).json({
-      success: true,
+          campaignId:
+            body.campaignId ||
+            null,
 
-      message:
-        canLogForAnotherUser(user)
-          ? 'Donation recorded and verified successfully'
-          : 'Donation recorded. Awaiting verification.',
+          bloodRequestId:
+            body.bloodRequestId ||
+            null,
 
-      data: record
-    });
-  } catch (err) {
-    console.error(
-      'createDonation error:',
-      err
-    );
+          bloodBankId:
+            body.bloodBankId ||
+            (
+              user.role ===
+                'BloodBank'
+                ? user._id
+                : null
+            ),
 
-    return res.status(
-      err.statusCode || 500
-    ).json({
-      success: false,
-      message:
-        err.message ||
-        'Unable to record donation'
-    });
-  }
-};
+          donationDate:
+            body.donationDate ||
+            new Date(),
+
+          unitsDonated:
+            body.unitsDonated,
+
+          locationName:
+            body.locationName ||
+            '',
+
+          notes:
+            body.notes ||
+            '',
+
+          submittedBy:
+            user._id
+        });
+
+      await notifyAdmins(
+        record
+      );
+
+      return res
+        .status(201)
+        .json({
+          success:
+            true,
+
+          message:
+            `Donation ${record.publicId} submitted. Waiting for Admin approval.`,
+
+          data:
+            record
+        });
+    } catch (err) {
+      console.error(
+        'createDonation error:',
+        err
+      );
+
+      return res
+        .status(
+          err.statusCode ||
+          500
+        )
+        .json({
+          success:
+            false,
+
+          message:
+            err.message ||
+            'Unable to submit donation'
+        });
+    }
+  };
 
 /*
 |--------------------------------------------------------------------------
 | GET /api/donations/me
 |--------------------------------------------------------------------------
 |
-| Native Donor:
-|   yes
+| Own history includes:
 |
-| Patient + donorProfile:
-|   yes
-|
-| Ordinary Patient:
-|   no
+| pending
+| approved
+| rejected
 |--------------------------------------------------------------------------
 */
 
-exports.getMyDonationHistory = async (
-  req,
-  res
-) => {
-  try {
-    if (
-      !hasDonorCapability(req.user)
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          'Blood donor registration is required to view your donation history'
+exports.getMyDonationHistory =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const [
+        history,
+        stats
+      ] =
+        await Promise.all([
+          getDonationHistory(
+            req.user._id,
+            {
+              includeAll:
+                true
+            }
+          ),
+
+          getDonationStats(
+            req.user._id
+          )
+        ]);
+
+      return res.json({
+        success:
+          true,
+
+        count:
+          history.length,
+
+        stats,
+
+        data:
+          history
       });
+    } catch (err) {
+      return res
+        .status(500)
+        .json({
+          success:
+            false,
+
+          message:
+            err.message
+        });
     }
+  };
 
-    /*
-     * DonationRecord.donor always stores the underlying User._id.
-     *
-     * Therefore this works for:
-     *
-     * Native Donor
-     * Patient + donorProfile
-     */
-    const donorId = req.user._id;
+/*
+|--------------------------------------------------------------------------
+| GET /api/donations/my-campaigns
+|--------------------------------------------------------------------------
+*/
 
-    const [history, stats] =
-      await Promise.all([
-        getDonationHistory(donorId),
-        getDonationStats(donorId)
-      ]);
+exports.getMyRegisteredCampaigns =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const campaigns =
+        await getRegisteredCampaignsForDonor(
+          req.user._id
+        );
 
-    return res.json({
-      success: true,
-      count: history.length,
-      stats,
-      data: history
-    });
-  } catch (err) {
-    console.error(
-      'getMyDonationHistory error:',
-      err
-    );
+      return res.json({
+        success:
+          true,
 
-    return res.status(500).json({
-      success: false,
-      message:
-        err.message ||
-        'Unable to load your donation history'
-    });
-  }
-};
+        count:
+          campaigns.length,
+
+        data:
+          campaigns
+      });
+    } catch (err) {
+      return res
+        .status(500)
+        .json({
+          success:
+            false,
+
+          message:
+            err.message
+        });
+    }
+  };
 
 /*
 |--------------------------------------------------------------------------
 | GET /api/donations/donor/:donorId
 |--------------------------------------------------------------------------
 |
-| donorId may be:
-|
-| Mongo User _id
-| DON-XXXXXX native donor
-| DON-XXXXXX Patient donor
+| Other-user lookup shows APPROVED records only.
 |--------------------------------------------------------------------------
 */
 
-exports.getDonorHistory = async (
-  req,
-  res
-) => {
-  try {
-    const donor = await resolveDonor(
-      req.params.donorId
-    );
+exports.getDonorHistory =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const donor =
+        await resolveDonor(
+          req.params.donorId
+        );
 
-    if (!donor) {
-      return res.status(404).json({
-        success: false,
-        message:
-          'Donor not found'
-      });
-    }
+      if (!donor) {
+        return res
+          .status(404)
+          .json({
+            success:
+              false,
 
-    const isOwnDonor =
-      donor._id.toString() ===
-      req.user._id.toString();
+            message:
+              'Donor not found'
+          });
+      }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Native Donor privacy rule
-    |--------------------------------------------------------------------------
-    |
-    | Native Donor:
-    | can only inspect own history.
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      req.user.role === 'Donor' &&
-      !isOwnDonor
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          'Donors may only view their own donation history'
-      });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Other roles must have lookup capability
-    |--------------------------------------------------------------------------
-    |
-    | Patient -> yes
-    | Patient donor -> yes
-    | Hospital -> yes
-    | BloodBank -> yes
-    | Admin -> yes
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      req.user.role !== 'Donor' &&
-      !canLookupOtherDonorHistory(req.user)
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          'You are not authorized to view donor history'
-      });
-    }
-
-    const [history, stats] =
-      await Promise.all([
-        getDonationHistory(
+      const own =
+        String(
           donor._id
-        ),
+        ) ===
+        String(
+          req.user._id
+        );
 
-        getDonationStats(
-          donor._id
+      if (
+        req.user.role ===
+          'Donor' &&
+        !own
+      ) {
+        return res
+          .status(403)
+          .json({
+            success:
+              false,
+
+            message:
+              'Donors may only view their own donation history'
+          });
+      }
+
+      if (
+        req.user.role !==
+          'Donor' &&
+        !canLookupOtherDonorHistory(
+          req.user
         )
-      ]);
+      ) {
+        return res
+          .status(403)
+          .json({
+            success:
+              false,
 
-    /*
-     * Resolve the public donor ID according to architecture.
-     */
-    const publicId =
-      donor.role === 'Donor'
-        ? donor.publicId
-        : donor.donorProfile?.publicId;
+            message:
+              'You are not authorized to view donor history'
+          });
+      }
 
-    return res.json({
-      success: true,
+      const [
+        history,
+        stats
+      ] =
+        await Promise.all([
+          getDonationHistory(
+            donor._id,
+            {
+              includeAll:
+                own
+            }
+          ),
 
-      donor: {
-        _id:
-          donor._id,
+          getDonationStats(
+            donor._id
+          )
+        ]);
 
-        name:
-          donor.name,
+      const publicId =
+        donor.role ===
+          'Donor'
+          ? donor.publicId
+          : donor
+              .donorProfile
+              ?.publicId;
 
-        publicId:
-          publicId || null
-      },
+      return res.json({
+        success:
+          true,
 
-      count:
-        history.length,
+        donor: {
+          _id:
+            donor._id,
 
-      stats,
+          name:
+            donor.name,
 
-      data:
-        history
-    });
-  } catch (err) {
-    console.error(
-      'getDonorHistory error:',
-      err
-    );
+          publicId:
+            publicId ||
+            null
+        },
 
-    return res.status(500).json({
-      success: false,
-      message:
-        err.message ||
-        'Unable to load donor history'
-    });
-  }
-};
+        count:
+          history.length,
+
+        stats,
+
+        data:
+          history
+      });
+    } catch (err) {
+      return res
+        .status(
+          err.statusCode ||
+          500
+        )
+        .json({
+          success:
+            false,
+
+          message:
+            err.message
+        });
+    }
+  };
 
 /*
 |--------------------------------------------------------------------------
-| GET /api/donations/:id
+| ADMIN: GET pending
 |--------------------------------------------------------------------------
 */
 
-exports.getDonationById = async (
-  req,
-  res
-) => {
-  try {
-    const record =
-      await DonationRecord
-        .findById(
-          req.params.id
-        )
+exports.getPendingDonationApprovals =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const records =
+        await getPendingDonations();
 
-        .populate(
-          'donor',
-          'name role'
-        )
+      return res.json({
+        success:
+          true,
 
-        .populate(
-          'verifiedBy',
-          'name role'
+        count:
+          records.length,
+
+        data:
+          records
+      });
+    } catch (err) {
+      return res
+        .status(500)
+        .json({
+          success:
+            false,
+
+          message:
+            err.message
+        });
+    }
+  };
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN: approve
+|--------------------------------------------------------------------------
+*/
+
+exports.approveDonationRecord =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const record =
+        await approveDonation(
+          req.params.id,
+          req.user
         );
 
-    if (!record) {
-      return res.status(404).json({
-        success: false,
+      return res.json({
+        success:
+          true,
+
         message:
-          'Donation record not found'
+          `Donation ${record.publicId} approved successfully`,
+
+        data:
+          record
       });
+    } catch (err) {
+      return res
+        .status(
+          err.statusCode ||
+          500
+        )
+        .json({
+          success:
+            false,
+
+          message:
+            err.message
+        });
     }
+  };
 
-    return res.json({
-      success: true,
-      data: record
-    });
-  } catch (err) {
-    console.error(
-      'getDonationById error:',
-      err
-    );
+/*
+|--------------------------------------------------------------------------
+| ADMIN: reject
+|--------------------------------------------------------------------------
+*/
 
-    return res.status(500).json({
-      success: false,
-      message:
-        err.message ||
-        'Unable to load donation record'
-    });
-  }
-};
+exports.rejectDonationRecord =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const record =
+        await rejectDonation(
+          req.params.id,
+          req.user,
+          req.body
+            ?.reason ||
+            ''
+        );
+
+      return res.json({
+        success:
+          true,
+
+        message:
+          `Donation ${record.publicId} rejected`,
+
+        data:
+          record
+      });
+    } catch (err) {
+      return res
+        .status(
+          err.statusCode ||
+          500
+        )
+        .json({
+          success:
+            false,
+
+          message:
+            err.message
+        });
+    }
+  };
+
+/*
+|--------------------------------------------------------------------------
+| GET one
+|--------------------------------------------------------------------------
+*/
+
+exports.getDonationById =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const record =
+        await DonationRecord
+          .findById(
+            req.params.id
+          )
+
+          .populate(
+            'donor',
+            'name role publicId donorProfile'
+          )
+
+          .populate(
+            'submittedBy',
+            'name role'
+          )
+
+          .populate(
+            'approvedBy',
+            'name role'
+          )
+
+          .populate(
+            'campaign',
+            'title venue'
+          )
+
+          .populate(
+            'bloodRequest',
+            'publicId patientName'
+          );
+
+      if (!record) {
+        return res
+          .status(404)
+          .json({
+            success:
+              false,
+
+            message:
+              'Donation record not found'
+          });
+      }
+
+      return res.json({
+        success:
+          true,
+
+        data:
+          record
+      });
+    } catch (err) {
+      return res
+        .status(500)
+        .json({
+          success:
+            false,
+
+          message:
+            err.message
+        });
+    }
+  };

@@ -673,28 +673,41 @@ const canManageAvailability = (donor) => {
               handleBecomeDonorSubmit
             }
           >
+            <p className="muted">
+               Blood group, date of birth,
+               gender and weight are reused
+               from your Patient account.
+               Existing saved information
+               cannot be changed during donor
+               registration.
+            </p>
             <div className="form-row">
               <Field
                 label={t(
                   'donors.bloodGroup'
                 )}
               >
-                <select
-                  value={
-                    becomeDonorForm.bloodGroup
-                  }
-                  onChange={(e) =>
-                    setBecomeDonorForm(
-                      (previous) => ({
-                        ...previous,
-
-                        bloodGroup:
-                          e.target.value
-                      })
-                    )
-                  }
-                  required
-                >
+                  <select
+                    value={
+                      becomeDonorForm.bloodGroup
+                    }
+                    onChange={(e) =>
+                      setBecomeDonorForm(
+                        (previous) => ({
+                          ...previous,
+                  
+                          bloodGroup:
+                            e.target.value
+                        })
+                      )
+                    }
+                    disabled={
+                      Boolean(
+                        user?.bloodGroup
+                      )
+                    }
+                    required
+                  >
                   {BLOOD_GROUPS.map(
                     (group) => (
                       <option
@@ -713,22 +726,27 @@ const canManageAvailability = (donor) => {
                   'donors.gender'
                 )}
               >
-                <select
-                  value={
-                    becomeDonorForm.gender
-                  }
-                  onChange={(e) =>
-                    setBecomeDonorForm(
-                      (previous) => ({
-                        ...previous,
-
-                        gender:
-                          e.target.value
-                      })
-                    )
-                  }
-                  required
-                >
+                  <select
+                    value={
+                      becomeDonorForm.gender
+                    }
+                    onChange={(e) =>
+                      setBecomeDonorForm(
+                        (previous) => ({
+                          ...previous,
+                  
+                          gender:
+                            e.target.value
+                        })
+                      )
+                    }
+                    disabled={
+                      Boolean(
+                        user?.gender
+                      )
+                    }
+                    required
+                  >
                   {GENDERS.map(
                     (gender) => (
                       <option
@@ -759,23 +777,28 @@ const canManageAvailability = (donor) => {
                   }
                 )}
               >
-                <input
-                  type="date"
-                  value={
-                    becomeDonorForm.dateOfBirth
-                  }
-                  onChange={(e) =>
-                    setBecomeDonorForm(
-                      (previous) => ({
-                        ...previous,
-
-                        dateOfBirth:
-                          e.target.value
-                      })
-                    )
-                  }
-                  required
-                />
+              <input
+                type="date"
+                value={
+                  becomeDonorForm.dateOfBirth
+                }
+                onChange={(e) =>
+                  setBecomeDonorForm(
+                    (previous) => ({
+                      ...previous,
+              
+                      dateOfBirth:
+                        e.target.value
+                    })
+                  )
+                }
+                disabled={
+                  Boolean(
+                    user?.dateOfBirth
+                  )
+                }
+                required
+              />
               </Field>
 
               <Field
@@ -787,24 +810,30 @@ const canManageAvailability = (donor) => {
                   }
                 )}
               >
-                <input
-                  type="number"
-                  min="45"
-                  value={
-                    becomeDonorForm.weightKg
-                  }
-                  onChange={(e) =>
-                    setBecomeDonorForm(
-                      (previous) => ({
-                        ...previous,
-
-                        weightKg:
-                          e.target.value
-                      })
-                    )
-                  }
-                  required
-                />
+              <input
+                type="number"
+                min="45"
+                value={
+                  becomeDonorForm.weightKg
+                }
+                onChange={(e) =>
+                  setBecomeDonorForm(
+                    (previous) => ({
+                      ...previous,
+              
+                      weightKg:
+                        e.target.value
+                    })
+                  )
+                }
+                disabled={
+                  user?.weightKg !==
+                    undefined &&
+                  user?.weightKg !==
+                    null
+                }
+                required
+              />
               </Field>
             </div>
 

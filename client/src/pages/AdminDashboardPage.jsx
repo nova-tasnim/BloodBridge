@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '../api/resources';
-
+import TranslationManagement from '../components/TranslationManagement';
+import { useAuth } from '../context/AuthContext';
 export default function AdminDashboardPage() {
   const { t } = useTranslation();
 
@@ -15,6 +16,9 @@ export default function AdminDashboardPage() {
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const {
+  user: currentAdmin
+} = useAuth();
 
   const loadDashboard = async () => {
     try {
@@ -369,17 +373,30 @@ export default function AdminDashboardPage() {
 
                   <td>
                     {user.isActive ? (
-                      <button
-                        className="action-button deactivate"
-                        onClick={() =>
-                          deactivateUser(user._id)
-                        }
-                      >
-                        {t('admin.users.deactivate')}
-                      </button>
+                      String(user._id) ===
+                      String(currentAdmin?._id) ? (
+                        <span className="disabled-label">
+                          Current Admin
+                        </span>
+                      ) : (
+                        <button
+                          className="action-button deactivate"
+                          onClick={() =>
+                            deactivateUser(
+                              user._id
+                            )
+                          }
+                        >
+                          {t(
+                            'admin.users.deactivate'
+                          )}
+                        </button>
+                      )
                     ) : (
                       <span className="disabled-label">
-                        {t('admin.users.deactivated')}
+                        {t(
+                          'admin.users.deactivated'
+                        )}
                       </span>
                     )}
                   </td>
@@ -432,6 +449,7 @@ export default function AdminDashboardPage() {
           </div>
         </section>
       )}
+      <TranslationManagement />
     </main>
   );
 }

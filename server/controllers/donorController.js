@@ -29,9 +29,7 @@ exports.createDonor = async (req, res) => {
 
 // POST /api/donors/become-donor
 //
-// A Patient gains donor CAPABILITY.
-//
-// IMPORTANT:
+// A Patient gains donor CAPABILITY
 // The Patient remains role === 'Patient'.
 // We create user.donorProfile instead of changing the discriminator role.
 exports.becomeDonor = async (req, res) => {
@@ -99,9 +97,13 @@ exports.becomeDonor = async (req, res) => {
     const dateOfBirth =
       req.user.dateOfBirth ||
       body.dateOfBirth;
-
-    const gender = body.gender;
-    const weightKg = body.weightKg;
+    const gender =
+      req.user.gender ||
+      body.gender;
+    
+    const weightKg =
+      req.user.weightKg ??
+      body.weightKg;
 
     const healthFlags = body.healthFlags || {};
 
@@ -149,8 +151,42 @@ exports.becomeDonor = async (req, res) => {
     |
     | Patient must remain Patient.
     |--------------------------------------------------------------------------
-    */
 
+
+     * Backfill older Patient accounts created before
+     * these fields became part of Patient signup.
+     */
+    if (
+      !req.user.bloodGroup
+    ) {
+      req.user.bloodGroup =
+        bloodGroup;
+    }
+    
+    if (
+      !req.user.dateOfBirth
+    ) {
+      req.user.dateOfBirth =
+        dateOfBirth;
+    }
+    
+    if (
+      !req.user.gender
+    ) {
+      req.user.gender =
+        gender;
+    }
+    
+    if (
+      req.user.weightKg ===
+        undefined ||
+      req.user.weightKg ===
+        null
+    ) {
+      req.user.weightKg =
+        numericWeight;
+    }
+    
     req.user.donorProfile = {
       bloodGroup,
       dateOfBirth,

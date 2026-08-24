@@ -39,7 +39,8 @@ const {
 const {
   protect,
   authorize,
-  requireDonorCapability
+  requireDonorCapability,
+  requireVerifiedInstitution
 } =
   require('../middleware/auth');
 
@@ -216,9 +217,11 @@ router.post(
 
 router.get(
   '/:id/timeline',
+
+  requireVerifiedInstitution,
+
   getTimeline
 );
-
 router.get(
   '/:id/allowed-transitions',
   getAllowed
@@ -233,6 +236,8 @@ router.get(
  */
 router.patch(
   '/:id/status',
+
+  requireVerifiedInstitution,
 
   isRequestOwnerOrStaff,
 
@@ -318,12 +323,14 @@ router
     getBloodRequestById
   )
 
-  .put(
-    isRequestOwnerOrStaff,
-    updateBloodRequest
-  )
+.put(
+  requireVerifiedInstitution,
+  isRequestOwnerOrStaff,
+  updateBloodRequest
+)
 
   .delete(
+    requireVerifiedInstitution,
     isRequestOwnerOrStaff,
     deleteBloodRequest
   );

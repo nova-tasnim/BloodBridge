@@ -1,30 +1,83 @@
-const express = require('express');
-const router = express.Router();
+const express =
+  require('express');
 
-const feedbackController = require('../controllers/feedbackController');
-const { protect } = require('../middleware/auth');
+const router =
+  express.Router();
 
-router.use(protect);
+const feedbackController =
+  require(
+    '../controllers/feedbackController'
+  );
 
-// Submit feedback
-router.post('/', feedbackController.submitFeedback);
+const {
+  protect,
+  authorize
+} =
+  require('../middleware/auth');
 
-// Get all feedback for a target
-router.get(
-  '/target/:targetId',
-  feedbackController.getFeedbackForTarget
+router.use(
+  protect
 );
 
-// Get average rating for a target
-router.get(
-  '/target/:targetId/average',
-  feedbackController.getAverageRating
+/*
+|--------------------------------------------------------------------------
+| User feedback
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  '/',
+  feedbackController
+    .submitFeedback
 );
 
-// Get recent feedback
+/*
+|--------------------------------------------------------------------------
+| Admin moderation
+|--------------------------------------------------------------------------
+*/
+
 router.get(
   '/recent',
-  feedbackController.getRecentFeedback
+
+  authorize(
+    'Admin'
+  ),
+
+  feedbackController
+    .getRecentFeedback
 );
 
-module.exports = router;
+router.delete(
+  '/:feedbackId',
+
+  authorize(
+    'Admin'
+  ),
+
+  feedbackController
+    .deleteFeedback
+);
+
+/*
+|--------------------------------------------------------------------------
+| Target feedback
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  '/target/:targetId/average',
+
+  feedbackController
+    .getAverageRating
+);
+
+router.get(
+  '/target/:targetId',
+
+  feedbackController
+    .getFeedbackForTarget
+);
+
+module.exports =
+  router;

@@ -609,7 +609,6 @@ async function respondToRequest(
 | only.
 |--------------------------------------------------------------------------
 */
-
 async function fulfilRequest(
   requestId,
   donorIdentifier,
@@ -636,26 +635,6 @@ async function fulfilRequest(
     );
   }
 
-  if (
-    ![
-      'accepted',
-      'matched'
-    ].includes(
-      request.status
-    )
-  ) {
-    throw badRequest(
-      `A donation can only be verified once a donor has been matched or accepted. Current status: "${request.status}".`
-    );
-  }
-
-  /*
-   * donorIdentifier may be:
-   *
-   * ObjectId
-   * DON-XXXXXX native donor
-   * DON-XXXXXX Patient donor
-   */
   const donor =
     await resolveDonor(
       donorIdentifier
@@ -667,9 +646,6 @@ async function fulfilRequest(
     );
   }
 
-  /*
-   * Fulfillment must correspond to a matched donor.
-   */
   const isMatched =
     request.matchedDonors.some(
       (id) =>
@@ -713,23 +689,21 @@ async function fulfilRequest(
     !Number.isFinite(
       units
     ) ||
-    units <= 0
+    units < 0.5
   ) {
     throw badRequest(
-      'unitsDonated must be greater than 0.'
+      'unitsDonated must be at least 0.5.'
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Donation record
-  |--------------------------------------------------------------------------
-  */
 
   const donation =
     await recordDonation({
       donorId:
         donor._id,
+
+      donationType:
+        'request',
 
       bloodRequestId:
         requestId,
@@ -748,61 +722,50 @@ async function fulfilRequest(
 
       notes:
         options.notes ||
-        `Donation against request for ${request.patientName}`,
+        `Donation submitted against request for ${request.patientName}`,
 
-      verifiedBy:
-        options.verifiedBy ||
-        null
+      submittedBy:
+        options.verifiedBy
     });
 
-  request.unitsFulfilled +=
-    units;
-
-  if (response) {
+  /*
+   * Keep response as accepted.
+   *
+   * It becomes completed only when Admin approves.
+   */
+  if (
+    response &&
+    response.status ===
+      'completed'
+  ) {
     response.status =
-      'completed';
+      'accepted';
 
     await response.save();
   }
 
-  const fullyMet =
-    request.unitsFulfilled >=
-    request.unitsNeeded;
+  try {
+    await createNotification(
+      donor._id,
 
-  if (fullyMet) {
-    request.status =
-      'fulfilled';
+      `Donation ${donation.publicId} for ${request.patientName} was submitted and is waiting for Admin approval.`,
+
+      'status_update'
+    );
+
+    await createNotification(
+      request.requester,
+
+      `A donation for your request ${request.publicId || request._id} was submitted and is waiting for Admin approval.`,
+
+      'status_update'
+    );
+  } catch (err) {
+    console.error(
+      'Pending fulfillment notification failed:',
+      err.message
+    );
   }
-
-  await request.save();
-
-  /*
-  |--------------------------------------------------------------------------
-  | Notifications
-  |--------------------------------------------------------------------------
-  */
-
-  await createNotification(
-    donor._id,
-
-    `Your donation of ${units} unit(s) for ${request.patientName} has been verified. Thank you for donating.`,
-
-    'status_update'
-  );
-
-  await createNotification(
-    request.requester,
-
-    fullyMet
-      ? `Your blood request for ${request.patientName} has been fully fulfilled.`
-      : `${units} unit(s) recorded for your request for ${request.patientName}. ${Math.max(
-          request.unitsNeeded -
-            request.unitsFulfilled,
-          0
-        )} unit(s) still needed.`,
-
-    'status_update'
-  );
 
   return {
     donationId:
@@ -816,6 +779,9 @@ async function fulfilRequest(
 
     unitsDonated:
       units,
+
+    donationStatus:
+      donation.status,
 
     unitsFulfilled:
       request.unitsFulfilled,
@@ -834,15 +800,12 @@ async function fulfilRequest(
       request.status,
 
     fullyFulfilled:
-      fullyMet
+      false,
+
+    awaitingAdminApproval:
+      true
   };
 }
-
-/*
-|--------------------------------------------------------------------------
-| Responses
-|--------------------------------------------------------------------------
-*/
 
 async function getResponses(
   requestId
@@ -913,7 +876,11 @@ async function getResponses(
 */
 
 async function getRequestTimeline(
-  requestId
+  requestId,
+  {
+    viewerId = null,
+    visibility = 'owner'
+  } = {}
 ) {
   const request =
     await BloodRequest.findById(
@@ -926,10 +893,127 @@ async function getRequestTimeline(
     );
   }
 
-  const responses =
+  const allResponses =
     await getResponses(
       requestId
     );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Privacy-aware response visibility
+  |--------------------------------------------------------------------------
+  |
+  | staff:
+  |   full response details
+  |
+  | owner:
+  |   response progress only — no donor identity/contact/location
+  |
+  | donor:
+  |   only that donor's own response
+  |
+  */
+
+  let responses = [];
+
+  if (
+    visibility ===
+    'staff'
+  ) {
+    responses =
+      allResponses;
+  }
+
+  else if (
+    visibility ===
+    'donor'
+  ) {
+    responses =
+      allResponses
+        .filter(
+          (response) => {
+            const donorId =
+              response
+                ?.donor
+                ?._id ||
+              response
+                ?.donor;
+
+            return (
+              String(
+                donorId
+              ) ===
+              String(
+                viewerId
+              )
+            );
+          }
+        );
+  }
+
+  else {
+    /*
+     * Request owner can understand progress,
+     * but should not receive another donor's
+     * personal information.
+     */
+    responses =
+      allResponses.map(
+        (response) => ({
+          _id:
+            response._id,
+
+          status:
+            response.status,
+
+          respondedAt:
+            response.respondedAt,
+
+          createdAt:
+            response.createdAt,
+
+          updatedAt:
+            response.updatedAt
+        })
+      );
+  }
+
+  /*
+   * Full aggregate counts are useful to the requester
+   * and operational staff without exposing donor identity.
+   */
+  const responseSummary = {
+    total:
+      allResponses.length,
+
+    pending:
+      allResponses.filter(
+        (r) =>
+          r.status ===
+          'pending'
+      ).length,
+
+    accepted:
+      allResponses.filter(
+        (r) =>
+          r.status ===
+          'accepted'
+      ).length,
+
+    declined:
+      allResponses.filter(
+        (r) =>
+          r.status ===
+          'declined'
+      ).length,
+
+    completed:
+      allResponses.filter(
+        (r) =>
+          r.status ===
+          'completed'
+      ).length
+  };
 
   return {
     requestId:
@@ -938,8 +1022,15 @@ async function getRequestTimeline(
     publicId:
       request.publicId,
 
+    /*
+     * Requester identity is operationally useful
+     * to owner/staff, but not necessary for a matched donor.
+     */
     requester:
-      request.requester,
+      visibility ===
+      'donor'
+        ? null
+        : request.requester,
 
     patientName:
       request.patientName,
@@ -972,41 +1063,22 @@ async function getRequestTimeline(
     createdAt:
       request.createdAt,
 
+    /*
+     * Never reveal the complete matched-donor list
+     * to ordinary request owners or donors.
+     */
     matchedDonors:
-      request.matchedDonors,
+      visibility ===
+      'staff'
+        ? request.matchedDonors
+        : [],
 
-    responseSummary: {
-      total:
-        responses.length,
+    matchedDonorCount:
+      request
+        .matchedDonors
+        .length,
 
-      pending:
-        responses.filter(
-          (r) =>
-            r.status ===
-            'pending'
-        ).length,
-
-      accepted:
-        responses.filter(
-          (r) =>
-            r.status ===
-            'accepted'
-        ).length,
-
-      declined:
-        responses.filter(
-          (r) =>
-            r.status ===
-            'declined'
-        ).length,
-
-      completed:
-        responses.filter(
-          (r) =>
-            r.status ===
-            'completed'
-        ).length
-    },
+    responseSummary,
 
     responses
   };

@@ -44,9 +44,34 @@ campaignSchema.index({ startDate: 1, endDate: 1 });
 // Derived status — never stored, so it can't drift out of date
 campaignSchema.virtual('status').get(function () {
   const now = Date.now();
-  if (!this.isActive) return 'cancelled';
-  if (now < this.startDate.getTime()) return 'upcoming';
-  if (now > this.endDate.getTime()) return 'completed';
+
+  if (
+    this.isActive === false
+  ) {
+    return 'cancelled';
+  }
+
+  if (
+    !this.startDate ||
+    !this.endDate
+  ) {
+    return null;
+  }
+
+  if (
+    now <
+    this.startDate.getTime()
+  ) {
+    return 'upcoming';
+  }
+
+  if (
+    now >
+    this.endDate.getTime()
+  ) {
+    return 'completed';
+  }
+
   return 'ongoing';
 });
 
@@ -56,10 +81,26 @@ campaignSchema.virtual('progressPercent').get(function () {
 });
 
 campaignSchema.virtual('daysUntilStart').get(function () {
-  const ms = this.startDate.getTime() - Date.now();
-  return Math.ceil(ms / (1000 * 60 * 60 * 24));
-});
+  if (
+    !this.startDate
+  ) {
+    return null;
+  }
 
+  const ms =
+    this.startDate.getTime() -
+    Date.now();
+
+  return Math.ceil(
+    ms /
+      (
+        1000 *
+        60 *
+        60 *
+        24
+      )
+  );
+});
 const Campaign = mongoose.model('Campaign', campaignSchema);
 
 module.exports = Campaign;

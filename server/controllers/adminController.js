@@ -2,46 +2,36 @@ const mongoose = require('mongoose');
 const { User } = require('../models/User');
 const { BloodRequest } = require('../models/BloodRequest');
 const DonationRecord = require('../models/DonationRecord');
+const {getPlatformOverviewStats} = require(
+  '../services/platformStatsService'
+);
 
 // 1. Platform overview — high-level counts
-exports.getPlatformOverview = async (req, res) => {
-  try {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+exports.getPlatformOverview =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      /*
+       * Shared with LiveStatsBar.
+       *
+       * This prevents Admin and LiveStats from
+       * silently using different definitions.
+       */
+      const stats =
+        await getPlatformOverviewStats();
 
-    const totalDonors = await User.countDocuments({ role: 'Donor' });
-    const totalPatients = await User.countDocuments({ role: 'Patient' });
-    const totalHospitals = await User.countDocuments({ role: 'Hospital' });
-    const totalBloodBanks = await User.countDocuments({ role: 'BloodBank' });
-
-    const totalRequestsAllTime = await BloodRequest.countDocuments();
-
-    const totalRequestsThisMonth = await BloodRequest.countDocuments({
-      createdAt: { $gte: startOfMonth }
-    });
-
-    const fulfilledRequests = await BloodRequest.countDocuments({
-      status: 'fulfilled'
-    });
-
-    const fulfillmentRate = totalRequestsAllTime > 0
-      ? ((fulfilledRequests / totalRequestsAllTime) * 100).toFixed(2)
-      : 0;
-
-    res.json({
-      totalDonors,
-      totalPatients,
-      totalHospitals,
-      totalBloodBanks,
-      totalRequestsAllTime,
-      totalRequestsThisMonth,
-      fulfillmentRate: `${fulfillmentRate}%`
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+      res.json(stats);
+    } catch (err) {
+      res
+        .status(500)
+        .json({
+          message:
+            err.message
+        });
+    }
+  };
 
 
 // 2. Shortage trends — requests grouped by blood group and status
@@ -113,50 +103,100 @@ exports.getShortageTrends = async (req, res) => {
 
 
 // 3. Donor retention — one-time vs repeat vs highly active donors
-exports.getDonorRetention = async (req, res) => {
-  try {
-    const donationCounts = await DonationRecord.aggregate([
-      {
-        $group: {
-          _id: '$donor',
-          donationCount: { $sum: 1 }
-        }
-      }
-    ]);
+exports.getDonorRetention =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      /*
+       * Only approved DonationRecords are
+       * official donation history.
+       *
+       * Pending/rejected submissions must
+       * never increase retention metrics.
+       */
+      const donationCounts =
+        await DonationRecord
+          .aggregate([
+            {
+              $match: {
+                status:
+                  'approved'
+              }
+            },
 
-    const totalDonorsWithDonations = donationCounts.length;
+            {
+              $group: {
+                _id:
+                  '$donor',
 
-    const oneTimeDonors = donationCounts.filter(
-      d => d.donationCount === 1
-    ).length;
+                donationCount: {
+                  $sum: 1
+                }
+              }
+            }
+          ]);
 
-    const repeatDonors = donationCounts.filter(
-      d => d.donationCount >= 2 && d.donationCount < 5
-    ).length;
+      const totalDonorsWithDonations =
+        donationCounts.length;
 
-    const highlyActiveDonors = donationCounts.filter(
-      d => d.donationCount >= 5
-    ).length;
+      const oneTimeDonors =
+        donationCounts.filter(
+          donor =>
+            donor.donationCount ===
+            1
+        ).length;
 
-    const retentionRate = totalDonorsWithDonations > 0
-      ? (
-          ((repeatDonors + highlyActiveDonors) /
-            totalDonorsWithDonations) *
-          100
-        ).toFixed(2)
-      : 0;
+      const repeatDonors =
+        donationCounts.filter(
+          donor =>
+            donor.donationCount >=
+              2 &&
+            donor.donationCount <
+              5
+        ).length;
 
-    res.json({
-      totalDonorsWithDonations,
-      oneTimeDonors,
-      repeatDonors,
-      highlyActiveDonors,
-      retentionRate: `${retentionRate}%`
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+      const highlyActiveDonors =
+        donationCounts.filter(
+          donor =>
+            donor.donationCount >=
+            5
+        ).length;
+
+      const retentionRate =
+        totalDonorsWithDonations >
+        0
+          ? (
+              (
+                (
+                  repeatDonors +
+                  highlyActiveDonors
+                ) /
+                totalDonorsWithDonations
+              ) *
+              100
+            ).toFixed(2)
+          : 0;
+
+      res.json({
+        totalDonorsWithDonations,
+        oneTimeDonors,
+        repeatDonors,
+        highlyActiveDonors,
+
+        retentionRate:
+          `${retentionRate}%`
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({
+          message:
+            err.message
+        });
+    }
+  };
 
 
 // 4. Verify a hospital or blood bank
@@ -268,30 +308,86 @@ exports.getAllUsers = async (req, res) => {
 
 
 // 7. Deactivate a user (soft delete)
-exports.deactivateUser = async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.params.userId,
-      { isActive: false },
-      { new: true }
-    );
+exports.deactivateUser =
+  async (req, res) => {
+    try {
+      const user =
+        await User.findById(
+          req.params.userId
+        );
 
-    if (!user) {
-      return res.status(404).json({
-        message: 'User not found'
+      if (!user) {
+        return res
+          .status(404)
+          .json({
+            message:
+              'User not found'
+          });
+      }
+
+      /*
+       * Never allow the currently logged-in Admin
+       * to deactivate their own account.
+       */
+      if (
+        user.role === 'Admin' &&
+        String(user._id) ===
+          String(req.user._id)
+      ) {
+        return res
+          .status(403)
+          .json({
+            message:
+              'You cannot deactivate your own Admin account'
+          });
+      }
+
+      /*
+       * Never allow BloodBridge to end up with
+       * zero active Admin accounts.
+       */
+      if (
+        user.role === 'Admin'
+      ) {
+        const activeAdminCount =
+          await User
+            .countDocuments({
+              role: 'Admin',
+              isActive: true
+            });
+
+        if (
+          activeAdminCount <= 1
+        ) {
+          return res
+            .status(400)
+            .json({
+              message:
+                'Cannot deactivate the only active Admin account'
+            });
+        }
+      }
+
+      user.isActive =
+        false;
+
+      await user.save();
+
+      return res.json({
+        message:
+          'User deactivated',
+
+        user
       });
+    } catch (err) {
+      return res
+        .status(500)
+        .json({
+          message:
+            err.message
+        });
     }
-
-    res.json({
-      message: 'User deactivated',
-      user
-    });
-  } catch (err) {
-    res.status(500).json({
-      message: err.message
-    });
-  }
-};
+  };
 // 8. Activate a user
 exports.activateUser = async (req, res) => {
   try {

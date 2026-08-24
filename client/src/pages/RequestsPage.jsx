@@ -943,7 +943,70 @@ export default function RequestsPage() {
               'cancelled'
           )
         : [];
+  /*
+|--------------------------------------------------------------------------
+| Timeline visibility
+|--------------------------------------------------------------------------
+*/
 
+const canViewTimeline =
+  (request) => {
+    const requesterId =
+      request
+        ?.requester
+        ?._id ||
+      request
+        ?.requester;
+
+    const ownsRequest =
+      requesterId &&
+      user?._id &&
+      String(
+        requesterId
+      ) ===
+        String(
+          user._id
+        );
+
+    const staff =
+      [
+        'Hospital',
+        'BloodBank',
+        'Admin'
+      ].includes(
+        user?.role
+      );
+
+    const matched =
+      Array.isArray(
+        request
+          ?.matchedDonors
+      ) &&
+      request
+        .matchedDonors
+        .some(
+          (donor) => {
+            const donorId =
+              donor?._id ||
+              donor;
+
+            return (
+              String(
+                donorId
+              ) ===
+              String(
+                user?._id
+              )
+            );
+          }
+        );
+
+    return (
+      ownsRequest ||
+      staff ||
+      matched
+    );
+  };
   /*
   |--------------------------------------------------------------------------
   | Render
@@ -2140,23 +2203,23 @@ export default function RequestsPage() {
                       gap: 8
                     }}
                   >
-                    <button
-                      type="button"
-                      className="small"
-                      onClick={() =>
-                        handleRespond(
-                          'accepted'
-                        )
-                      }
-                    >
-                      {t(
-                        'requests.accept',
-                        {
-                          defaultValue:
-                            'I Can Help'
+                    {canViewTimeline(
+                      request
+                    ) && (
+                      <button
+                        type="button"
+                        className="small"
+                        onClick={() =>
+                          handleManage(
+                            request._id
+                          )
                         }
-                      )}
-                    </button>
+                      >
+                        {t(
+                          'requests.manage'
+                        )}
+                      </button>
+                    )}
 
                     <button
                       type="button"

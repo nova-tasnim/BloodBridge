@@ -1,98 +1,216 @@
-const { BloodRequest } = require('../models/BloodRequest');
-const { User } = require('../models/User');
+const {
+  BloodRequest
+} = require('../models/BloodRequest');
 
-// Platform overview for authenticated users (LiveStatsBar)
-exports.getPlatformOverview = async (req, res) => {
-  try {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+const {
+  ACTIVE_REQUEST_STATUSES,
+  formatRate,
+  getPlatformOverviewStats
+} = require(
+  '../services/platformStatsService'
+);
 
-    const [
-      totalDonors,
-      totalPatients,
-      totalHospitals,
-      totalBloodBanks,
-      totalRequestsAllTime,
-      totalRequestsThisMonth,
-      fulfilledRequests
-    ] = await Promise.all([
-      User.countDocuments({ role: 'Donor', isActive: true }),
-      User.countDocuments({ role: 'Patient', isActive: true }),
-      User.countDocuments({ role: 'Hospital', isActive: true }),
-      User.countDocuments({ role: 'BloodBank', isActive: true }),
-      BloodRequest.countDocuments({ isActive: true }),
-      BloodRequest.countDocuments({ isActive: true, createdAt: { $gte: startOfMonth } }),
-      BloodRequest.countDocuments({ status: 'fulfilled' })
-    ]);
+/*
+|--------------------------------------------------------------------------
+| Platform overview — LiveStatsBar
+|--------------------------------------------------------------------------
+*/
 
-    const fulfillmentRate = totalRequestsAllTime > 0
-      ? ((fulfilledRequests / totalRequestsAllTime) * 100).toFixed(2)
-      : 0;
+exports.getPlatformOverview =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const stats =
+        await getPlatformOverviewStats();
 
-    res.json({
-      success: true,
-      data: {
-        totalDonors,
-        totalPatients,
-        totalHospitals,
-        totalBloodBanks,
-        totalRequestsAllTime,
-        totalRequestsThisMonth,
-        fulfillmentRate: `${fulfillmentRate}%`
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({
+          success: false,
+          message:
+            err.message
+        });
+    }
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Request history
+|--------------------------------------------------------------------------
+*/
+
+exports.getRequestHistory =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        requesterId
+      } = req.params;
+
+      const requests =
+        await BloodRequest
+          .find({
+            requester:
+              requesterId
+          })
+          .sort({
+            createdAt: -1
+          });
+
+      res.json({
+        success: true,
+        data: requests
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({
+          success: false,
+          message:
+            err.message
+        });
+    }
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Fulfillment statistics
+|--------------------------------------------------------------------------
+|
+| Important:
+|
+| Do NOT start with:
+|
+| { isActive: true }
+|
+| and then try to count fulfilled requests.
+|
+| Fulfilled requests are intentionally inactive.
+|
+*/
+
+exports.getFulfillmentStats =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        requesterId
+      } = req.query;
+
+      /*
+       * Base filter determines only whose requests
+       * we are measuring.
+       */
+      const baseFilter = {};
+
+      if (requesterId) {
+        baseFilter.requester =
+          requesterId;
       }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
 
-// Get request history for a specific hospital/blood bank
-exports.getRequestHistory = async (req, res) => {
-  try {
-    const { requesterId } = req.params;
-
-    const requests = await BloodRequest.find({ requester: requesterId })
-      .sort({ createdAt: -1 });
-
-    res.json({ success: true, data: requests });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
-
-// Get fulfillment statistics (overall or filtered by requester)
-exports.getFulfillmentStats = async (req, res) => {
-  try {
-    const { requesterId } = req.query;
-    const filter = { isActive: true };
-    if (requesterId) filter.requester = requesterId;
-
-    const totalRequests = await BloodRequest.countDocuments(filter);
-    const fulfilledRequests = await BloodRequest.countDocuments({ ...filter, status: 'fulfilled' });
-    const pendingRequests = await BloodRequest.countDocuments({ ...filter, status: 'pending' });
-
-    const fulfillmentRate = totalRequests > 0
-      ? ((fulfilledRequests / totalRequests) * 100).toFixed(2)
-      : 0;
-
-    // Breakdown by blood group
-    const byBloodGroup = await BloodRequest.aggregate([
-      { $match: filter },
-      { $group: { _id: '$bloodGroup', count: { $sum: 1 } } }
-    ]);
-
-    res.json({
-      success: true,
-      data: {
+      const [
         totalRequests,
+        activeRequests,
         fulfilledRequests,
         pendingRequests,
-        fulfillmentRate: `${fulfillmentRate}%`,
         byBloodGroup
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
+      ] =
+        await Promise.all([
+          /*
+           * Historical total.
+           */
+          BloodRequest
+            .countDocuments(
+              baseFilter
+            ),
+
+          /*
+           * Currently active requests.
+           */
+          BloodRequest
+            .countDocuments({
+              ...baseFilter,
+
+              isActive:
+                true,
+
+              status: {
+                $in:
+                  ACTIVE_REQUEST_STATUSES
+              }
+            }),
+
+          BloodRequest
+            .countDocuments({
+              ...baseFilter,
+
+              status:
+                'fulfilled'
+            }),
+
+          BloodRequest
+            .countDocuments({
+              ...baseFilter,
+
+              status:
+                'pending'
+            }),
+
+          BloodRequest.aggregate([
+            {
+              $match:
+                baseFilter
+            },
+
+            {
+              $group: {
+                _id:
+                  '$bloodGroup',
+
+                count: {
+                  $sum: 1
+                }
+              }
+            }
+          ])
+        ]);
+
+      res.json({
+        success: true,
+
+        data: {
+          totalRequests,
+          activeRequests,
+          fulfilledRequests,
+          pendingRequests,
+
+          fulfillmentRate:
+            formatRate(
+              fulfilledRequests,
+              totalRequests
+            ),
+
+          byBloodGroup
+        }
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({
+          success: false,
+          message:
+            err.message
+        });
+    }
+  };

@@ -19,6 +19,7 @@ require('./models/Inventory');
 require('./models/Campaign');
 require('./models/DonorResponse');
 require('./models/CampaignRegistration');
+require('./models/Translation');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const donorRoutes = require('./routes/donorRoutes');
@@ -36,6 +37,7 @@ const badgeRoutes = require('./routes/badgeRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const authRoutes = require('./routes/authRoutes');
+const translationRoutes =require('./routes/translationRoutes');
 connectDB();
 
 app.use(cors());
@@ -59,6 +61,10 @@ app.use('/api/compatibility', compatibilityRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/assistant', assistantRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use(
+  '/api/translations',
+  translationRoutes
+);
 app.use((req, res) =>
   res.status(404).json({ success: false, message: 'Route not found' })
 );
