@@ -42,8 +42,7 @@ const {
   requireDonorCapability,
   requireVerifiedInstitution
 } =
-  require('../middleware/auth');
-
+  require('../middleware/auth'); /*middleware is code that runs before the controller*/
 /*
 |--------------------------------------------------------------------------
 | Request ownership/staff middleware
@@ -113,7 +112,7 @@ async function isRequestOwnerOrStaff(
 
 /*
 |--------------------------------------------------------------------------
-| Authentication
+| Authentication Every route written below this line must first pass protect.
 |--------------------------------------------------------------------------
 */
 

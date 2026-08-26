@@ -92,7 +92,7 @@ export const requestApi = {
   myRequests: (params) => api.get('/requests/my', { params }),
   create: (payload) => api.post('/requests', payload),
   remove: (id) => api.delete(`/requests/${id}`),
-  matches: (id, params) => api.get(`/requests/${id}/matches`, { params }),
+  matches: (id, params) => api.get(`/requests/${id}/matches`, { params }),/* feature 2*/ 
   runMatching: (id, payload = {}) => api.post(`/requests/${id}/matches`, payload),
 
   // Feature 9 — lifecycle

@@ -46,7 +46,7 @@ export default function QueuePage() {
     try {
       const cleaned = Object.fromEntries(
         Object.entries(params).filter(([, v]) => v !== '')
-      );
+      );/*remove empty filter values before sending them to backend.*/
 
       const res = await queueApi.get(cleaned);
 
@@ -65,6 +65,11 @@ export default function QueuePage() {
 
   // Priority is computed server-side on every read, so polling shows
   // scores climbing as requests age.
+  //autoRefresh off
+//→ do nothing
+
+//autoRefresh on
+//→ call load() every 30,000 ms
   useEffect(() => {
     if (!autoRefresh) return;
 
@@ -72,7 +77,7 @@ export default function QueuePage() {
 
     return () => clearInterval(id);
   }, [autoRefresh, filters]);
-
+//button click korle
   const set = (key) => (e) => {
     const next = {
       ...filters,

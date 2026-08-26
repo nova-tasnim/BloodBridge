@@ -71,12 +71,9 @@ export default function RequestsPage() {
   /*
    * Respond to matched blood request:
    *
-   * Native Donor         ✅
-   * Patient donor        ✅
-   * Plain Patient        ❌
-   * Hospital             ❌
-   * BloodBank            ❌
-   * Admin                ❌
+   * Native Donor         
+   * Patient donor        
+               
    */
   const canRespondAsDonor =
     isNativeDonor ||
@@ -85,12 +82,12 @@ export default function RequestsPage() {
   /*
    * Create blood request:
    *
-   * Donor                ✅
-   * Patient              ✅
-   * Patient donor        ✅
-   * Hospital             ✅
-   * BloodBank            ❌
-   * Admin                ✅
+   * Donor                
+   * Patient              
+   * Patient donor        
+   * Hospital             
+         
+   * Admin                
    */
   const canCreateRequest =
     [
@@ -103,9 +100,9 @@ export default function RequestsPage() {
   /*
    * Persist/run matching:
    *
-   * Hospital             ✅
-   * BloodBank            ✅
-   * Admin                ✅
+   * Hospital             
+   * BloodBank            
+   * Admin                
    */
   const canRunMatching =
     [
@@ -117,9 +114,9 @@ export default function RequestsPage() {
   /*
    * Confirm verified fulfillment:
    *
-   * Hospital             ✅
-   * BloodBank            ✅
-   * Admin                ✅
+   * Hospital             
+   * BloodBank            
+   * Admin                
    */
   const canConfirmFulfillment =
     [
@@ -157,7 +154,7 @@ export default function RequestsPage() {
     useState(null);
 
   const [matchRadius, setMatchRadius] =
-    useState(15);
+    useState(15);/* 15 km*/ 
 
   const [showExcluded, setShowExcluded] =
     useState(false);
@@ -244,7 +241,7 @@ export default function RequestsPage() {
   };
 
   /*
-  |--------------------------------------------------------------------------
+  |----------------------------------------------------
   | Load requests
   |--------------------------------------------------------------------------
   */
@@ -397,7 +394,13 @@ export default function RequestsPage() {
   /*
   |--------------------------------------------------------------------------
   | Create blood request
-  |--------------------------------------------------------------------------
+  const handleCreate = async (e) => {
+ 1. prevents browser refresh
+2. clears old errors/notices
+3. prepares request data
+4. calls requestApi.create(...)
+5. displays success/error
+6. reloads requests
   */
 
   const handleCreate =

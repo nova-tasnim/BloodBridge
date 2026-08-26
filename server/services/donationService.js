@@ -6,6 +6,10 @@ const Campaign =
 
 const CampaignRegistration =
   require('../models/CampaignRegistration');
+const {
+  isCompatible
+} =
+  require('./compatibilityService');
 
 const {
   BloodRequest
@@ -306,26 +310,138 @@ async function recordDonation({
   |--------------------------------------------------------------------------
   */
 
+/*
+|--------------------------------------------------------------------------
+| Direct blood-request donation validation
+|--------------------------------------------------------------------------
+*/
+
+let bloodRequest =
+  null;
+
+if (
+  donationType ===
+  'request'
+) {
   if (
-    donationType ===
-      'request' &&
-    bloodRequestId
+    !bloodRequestId
   ) {
-    const existing =
-      await DonationRecord
-        .findOne({
-          bloodRequest:
-            bloodRequestId,
-
-          donor:
-            donor._id
-        });
-
-    if (existing) {
-      return existing;
-    }
+    throw badRequest(
+      'Blood request is required for a request donation'
+    );
   }
 
+  bloodRequest =
+    await BloodRequest
+      .findById(
+        bloodRequestId
+      );
+
+  if (
+    !bloodRequest
+  ) {
+    throw notFound(
+      'Blood request not found'
+    );
+  }
+
+  /*
+   * Direct donation does NOT require the donor
+   * to have been matched beforehand.
+   *
+   * The donor only needs:
+   *
+   * 1. donor capability
+   * 2. compatible blood
+   * 3. active request
+   *
+   * Admin approval is still required before
+   * fulfillment is counted.
+   */
+
+  if (
+    !bloodRequest.isActive ||
+    [
+      'fulfilled',
+      'cancelled',
+      'expired'
+    ].includes(
+      bloodRequest.status
+    )
+  ) {
+    throw badRequest(
+      'This blood request is no longer accepting donations'
+    );
+  }
+
+  /*
+   * Blood compatibility is authoritative.
+   */
+  if (
+    !isCompatible(
+      donorData.bloodGroup,
+      bloodRequest.bloodGroup
+    )
+  ) {
+    throw badRequest(
+      `Blood group ${donorData.bloodGroup} is not compatible with recipient blood group ${bloodRequest.bloodGroup}`
+    );
+  }
+
+  /*
+   * Request must still need blood.
+   */
+  const remainingUnits =
+    Math.max(
+      Number(
+        bloodRequest.unitsNeeded
+      ) -
+      Number(
+        bloodRequest.unitsFulfilled || 0
+      ),
+      0
+    );
+
+  if (
+    remainingUnits <= 0
+  ) {
+    throw badRequest(
+      'This blood request has already been fulfilled'
+    );
+  }
+
+  /*
+   * Prevent duplicate active submission
+   * from the same donor for the same request.
+   */
+  const existing =
+    await DonationRecord
+      .findOne({
+        bloodRequest:
+          bloodRequest._id,
+
+        donor:
+          donor._id,
+
+        status: {
+          $in: [
+            'pending',
+            'approved'
+          ]
+        }
+      });
+
+  if (
+    existing
+  ) {
+    throw badRequest(
+      existing.status ===
+        'approved'
+        ? 'Your donation for this blood request has already been approved'
+        : 'You already have a donation for this blood request waiting for approval'
+    );
+  }
+}
   /*
   |--------------------------------------------------------------------------
   | Create PENDING record only
@@ -571,27 +687,57 @@ async function approveDonation(
       linkedRequest.isActive =
         false;
     }
+  const alreadyLinked =
+  linkedRequest
+    .matchedDonors
+    .some(
+      (id) =>
+        String(id) ===
+        String(donor._id)
+    );
+
+if (
+  !alreadyLinked
+) {
+  linkedRequest
+    .matchedDonors
+    .push(
+      donor._id
+    );
+}
 
     await linkedRequest.save();
 
     /*
      * Mark donor response completed.
      */
-    await DonorResponse
-      .findOneAndUpdate(
-        {
-          bloodRequest:
-            linkedRequest._id,
+await DonorResponse
+  .findOneAndUpdate(
+    {
+      bloodRequest:
+        linkedRequest._id,
 
-          donor:
-            donor._id
-        },
+      donor:
+        donor._id
+    },
 
-        {
-          status:
-            'completed'
-        }
-      );
+    {
+      $set: {
+        status:
+          'completed',
+
+        respondedAt:
+          new Date()
+      }
+    },
+
+    {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert:
+        true
+    }
+  );
   }
 
   /*

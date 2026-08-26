@@ -128,6 +128,14 @@ function reliabilityScore(donor) {
 /*
 |--------------------------------------------------------------------------
 | Score one normalized donor
+a =
+sin²(Δlatitude / 2)
++
+cos(latitude1)
+× cos(latitude2)
+× sin²(Δlongitude / 2)
+distance =
+2 × Earth radius × asin(√a)
 |--------------------------------------------------------------------------
 */
 
@@ -152,22 +160,30 @@ function scoreDonor(
         request.bloodGroup
       ),
 
-    proximity:
+    proximity:/*1 - distance / 25 */
       proximityScore(
         distanceKm
       ),
 
-    recency:
+    recency:/* 1 - days since last donation / 180 */
       recencyScore(
         donor.lastDonationDate
       ),
 
-    reliability:
+    reliability:/* 1 - total donations / 5 */
       reliabilityScore(
         donor
       )
   };
-
+/*Total Score
+=
+compatibilityRaw × 40
++
+proximityRaw × 30
++
+recencyRaw × 20
++
+reliabilityRaw × 10*/
   const weighted = {};
 
   let total = 0;
@@ -259,9 +275,10 @@ async function findMatches(
     Number(options.radius) ||
     DEFAULT_SEARCH_RADIUS_KM;
 
-  const limit =
-    Number(options.limit) ||
-    10;
+const limit =
+  options.limit != null
+    ? Number(options.limit)
+    : null;
 
   const includeIneligible =
     options.includeIneligible ===
@@ -269,7 +286,7 @@ async function findMatches(
 
   const compatibleGroups =
     getCompatibleDonorGroups(
-      request.bloodGroup
+      request.bloodGroup/* server/services/compatibilityService.js*/
     );
 
   /*
@@ -298,6 +315,10 @@ async function findMatches(
 
       /*
        * Donor-capable Patient
+      role = Patient
+AND donorProfile exists
+AND available
+AND compatible blood group
        */
       {
         role: 'Patient',
@@ -320,28 +341,14 @@ async function findMatches(
   /*
    * Location exists at User level for both architectures.
    */
-  if (
-    request.location &&
-    request.location.coordinates
-  ) {
-    query.location = {
-      $geoWithin: {
-        $centerSphere: [
-          request.location
-            .coordinates,
 
-          radiusKm /
-            EARTH_RADIUS_KM
-        ]
-      }
-    };
-  }
 
   const users =
     await User.find(query);
 
   /*
    * Convert both user architectures into one donor shape.
+  Then the matching algorithm doesn't care which architecture the donor came from.
    */
   const candidates =
     users
@@ -430,17 +437,19 @@ async function findMatches(
       a.score
   );
 
-  const ranked =
-    eligible
-      .slice(0, limit)
-      .map(
-        (donor, index) => ({
-          rank:
-            index + 1,
+const rankedSource =
+  Number.isFinite(limit) &&
+  limit > 0
+    ? eligible.slice(0, limit)
+    : eligible;
 
-          ...donor
-        })
-      );
+const ranked =
+  rankedSource.map(
+    (donor, index) => ({
+      rank: index + 1,
+      ...donor
+    })
+  );
 
   return {
     request: {

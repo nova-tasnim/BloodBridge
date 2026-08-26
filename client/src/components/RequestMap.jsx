@@ -24,25 +24,49 @@ function RequestMap() {
   const [shareLocationConsent, setShareLocationConsent] = useState(true);
   const [statusMessage, setStatusMessage] = useState({});
 
-  const canRespond = user?.role === 'Donor' || user?.role === 'Admin';
+const isNativeDonor =
+  user?.role === 'Donor';
 
-  useEffect(() => {
-    if (!navigator.geolocation) {
+const isPatientDonor =
+  user?.role === 'Patient' &&
+  Boolean(user?.donorProfile);
+
+const canRespond =
+  isNativeDonor ||
+  isPatientDonor;
+
+useEffect(() => {
+  if (!navigator.geolocation) {
+    setUserLocation([23.8103, 90.4125]);
+    fetchAllRequests();
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const {
+        latitude,
+        longitude
+      } = position.coords;
+
+      setUserLocation([
+        latitude,
+        longitude
+      ]);
+
       fetchAllRequests();
-      return;
-    }
+    },
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation([latitude, longitude]);
-        fetchNearbyRequests(latitude, longitude);
-      },
-      () => {
-        fetchAllRequests();
-      }
-    );
-  }, []);
+    () => {
+      setUserLocation([
+        23.8103,
+        90.4125
+      ]);
+
+      fetchAllRequests();
+    }
+  );
+}, []);
 
   async function fetchNearbyRequests(lat, lng) {
     try {
@@ -60,19 +84,31 @@ function RequestMap() {
     }
   }
 
-  async function fetchAllRequests() {
-    try {
-      const result = await mapApi.allActive();
-      setRequests(result?.data || []);
-      setUserLocation([23.8103, 90.4125]);
-    } catch (err) {
-      console.error(t('map.failedToLoad', { defaultValue: 'Failed to load map data' }), err);
-      setRequests([]);
-      setUserLocation([23.8103, 90.4125]);
-    } finally {
-      setLoading(false);
-    }
+async function fetchAllRequests() {
+  try {
+    const result =
+      await mapApi.allActive();
+
+    setRequests(
+      result?.data || []
+    );
+  } catch (err) {
+    console.error(
+      t(
+        'map.failedToLoad',
+        {
+          defaultValue:
+            'Failed to load map data'
+        }
+      ),
+      err
+    );
+
+    setRequests([]);
+  } finally {
+    setLoading(false);
   }
+}
 
   async function handleRespond(request, decision = 'accepted') {
     if (!request?._id) return;

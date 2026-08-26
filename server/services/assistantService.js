@@ -1,7 +1,7 @@
 const {
-  GoogleGenerativeAI
+  GoogleGenAI
 } = require(
-  '@google/generative-ai'
+  '@google/genai'
 );
 
 const KnowledgeChunk =
@@ -36,9 +36,10 @@ const {
 );
 
 const genAI =
-  new GoogleGenerativeAI(
-    process.env.GEMINI_API_KEY
-  );
+  new GoogleGenAI({
+    apiKey:
+      process.env.GEMINI_API_KEY
+  });
 
 const ELIGIBILITY_KEYWORDS = [
   'eligible',
@@ -382,26 +383,22 @@ async function getLiveDonorContext(
 async function retrieveRelevantChunks(
   query
 ) {
-  const embeddingModel =
-    genAI.getGenerativeModel({
-      model:
-        'gemini-embedding-2'
-    });
-
   const result =
-    await embeddingModel
-      .embedContent({
-        content: {
-          parts: [
-            {
-              text: query
-            }
-          ]
-        },
+    await genAI.models.embedContent({
+      model:
+        'gemini-embedding-2',
 
+      contents:
+        query,
+
+      config: {
         outputDimensionality:
           768
-      });
+      }
+    });
+
+  const queryVector =
+    result.embeddings[0].values;
 
   return KnowledgeChunk.aggregate([
     {
@@ -412,10 +409,7 @@ async function retrieveRelevantChunks(
         path:
           'embedding',
 
-        queryVector:
-          result
-            .embedding
-            .values,
+        queryVector,
 
         numCandidates:
           50,
@@ -447,7 +441,6 @@ async function retrieveRelevantChunks(
 | Main assistant response
 |--------------------------------------------------------------------------
 */
-
 async function getAssistantReply({
   message,
   donorId,
@@ -459,11 +452,19 @@ async function getAssistantReply({
   const trimmed =
     message.trim();
 
+  console.log(
+    'AI 1: request received'
+  );
+
   if (
     GREETING_REGEX.test(
       trimmed
     )
   ) {
+    console.log(
+      'AI: greeting handled locally'
+    );
+
     return buildGreetingReply(
       language
     );
@@ -474,12 +475,20 @@ async function getAssistantReply({
       trimmed
     )
   ) {
+    console.log(
+      'AI: compatibility handled locally'
+    );
+
     return buildCompatibilityReply(
       trimmed,
       bloodGroup,
       language
     );
   }
+
+  console.log(
+    'AI 2: starting context retrieval'
+  );
 
   const [
     liveDataContext,
@@ -494,10 +503,27 @@ async function getAssistantReply({
       }
     ),
 
-    retrieveRelevantChunks(
-      trimmed
-    )
+    (async () => {
+      console.log(
+        'AI 3: starting vector retrieval'
+      );
+
+      const chunks =
+        await retrieveRelevantChunks(
+          trimmed
+        );
+
+      console.log(
+        'AI 4: vector retrieval complete'
+      );
+
+      return chunks;
+    })()
   ]);
+
+  console.log(
+    'AI 5: all context retrieval complete'
+  );
 
   const knowledgeContext =
     relevantChunks
@@ -527,31 +553,48 @@ ${liveDataContext}
 User question:
 ${trimmed}`;
 
-  const chatModel =
-    genAI.getGenerativeModel({
-      model:
-        'gemini-flash-latest'
-    });
+console.log(
+  'AI 6: calling Gemini generation'
+);
 
-  const result =
-    await chatModel
-      .generateContent(
-        prompt
-      );
+let result;
 
-  return {
-    response:
-      result.response.text(),
+try {
+  result =
+    await genAI.models
+      .generateContent({
+        model:
+          'gemini-3.7-flash',
 
-    sourcesUsed:
-      relevantChunks.map(
-        chunk =>
-          chunk.topic
-      ),
+        contents:
+          prompt
+      });
+} catch (error) {
+  console.error(
+    'Gemini generation failed:',
+    error
+  );
 
-    suggestedQuestions:
-      DEFAULT_SUGGESTIONS
-  };
+  throw error;
+}
+
+console.log(
+  'AI 7: Gemini generation complete'
+);
+
+return {
+  response:
+    result.text,
+
+  sourcesUsed:
+    relevantChunks.map(
+      chunk =>
+        chunk.topic
+    ),
+
+  suggestedQuestions:
+    DEFAULT_SUGGESTIONS
+};
 }
 
 module.exports = {

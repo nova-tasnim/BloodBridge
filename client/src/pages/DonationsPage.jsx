@@ -9,7 +9,8 @@ import {
 } from 'react-i18next';
 
 import {
-  donationsApi
+  donationsApi,
+  requestApi
 } from '../api/resources';
 
 import {
@@ -133,6 +134,12 @@ export default function DonationsPage() {
     useState([]);
 
   const [
+    bloodRequests,
+    setBloodRequests
+  ] =
+    useState([]);
+
+  const [
     pendingApprovals,
     setPendingApprovals
   ] =
@@ -171,6 +178,9 @@ export default function DonationsPage() {
         'regular',
 
       campaignId:
+        '',
+
+      bloodRequestId:
         '',
 
       donationDate:
@@ -302,6 +312,61 @@ export default function DonationsPage() {
 
   /*
   |--------------------------------------------------------------------------
+  | Load active blood requests
+  |--------------------------------------------------------------------------
+  */
+
+  const loadBloodRequests =
+    async () => {
+      if (
+        !canSelfDonate
+      ) {
+        return;
+      }
+
+      try {
+        const res =
+          await requestApi
+            .list();
+
+        const list =
+          Array.isArray(
+            res?.data
+          )
+            ? res.data
+            : Array.isArray(
+                res
+              )
+              ? res
+              : [];
+
+        const active =
+          list.filter(
+            (request) =>
+              request.isActive !==
+                false &&
+              ![
+                'fulfilled',
+                'cancelled',
+                'expired'
+              ].includes(
+                request.status
+              )
+          );
+
+        setBloodRequests(
+          active
+        );
+      } catch (err) {
+        console.error(
+          'Failed to load blood requests:',
+          err
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
   | Admin queue
   |--------------------------------------------------------------------------
   */
@@ -340,6 +405,7 @@ export default function DonationsPage() {
     ) {
       loadMyHistory();
       loadMyCampaigns();
+      loadBloodRequests();
     }
 
     if (isAdmin) {
@@ -381,6 +447,20 @@ export default function DonationsPage() {
           return;
         }
 
+        if (
+          selfForm
+            .donationType ===
+            'request' &&
+          !selfForm
+            .bloodRequestId
+        ) {
+          setError(
+            'Please select a blood request.'
+          );
+
+          return;
+        }
+
         const res =
           await donationsApi
             .create({
@@ -394,6 +474,14 @@ export default function DonationsPage() {
                     'campaign'
                   ? selfForm
                       .campaignId
+                  : null,
+
+              bloodRequestId:
+                selfForm
+                  .donationType ===
+                    'request'
+                  ? selfForm
+                      .bloodRequestId
                   : null,
 
               donationDate:
@@ -427,6 +515,9 @@ export default function DonationsPage() {
           campaignId:
             '',
 
+          bloodRequestId:
+            '',
+
           donationDate:
             new Date()
               .toISOString()
@@ -447,7 +538,8 @@ export default function DonationsPage() {
 
         await Promise.all([
           loadMyHistory(),
-          loadMyCampaigns()
+          loadMyCampaigns(),
+          loadBloodRequests()
         ]);
       } catch (err) {
         setError(
@@ -1040,6 +1132,9 @@ export default function DonationsPage() {
                             .value,
 
                         campaignId:
+                          '',
+
+                        bloodRequestId:
                           ''
                       })
                     )
@@ -1051,6 +1146,10 @@ export default function DonationsPage() {
 
                   <option value="campaign">
                     Donation to a Campaign
+                  </option>
+
+                  <option value="request">
+                    Donation to a Blood Request
                   </option>
                 </select>
               </Field>
@@ -1118,6 +1217,77 @@ export default function DonationsPage() {
                             : !item.canSubmit
                               ? ' (not currently open)'
                               : ''}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </Field>
+              )}
+
+              {selfForm
+                .donationType ===
+                'request' && (
+                <Field label="Blood Request">
+                  <select
+                    value={
+                      selfForm
+                        .bloodRequestId
+                    }
+                    onChange={(e) =>
+                      setSelfForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+
+                          bloodRequestId:
+                            e.target
+                              .value
+                        })
+                      )
+                    }
+                    required
+                  >
+                    <option value="">
+                      -- Select Blood Request --
+                    </option>
+
+                    {bloodRequests.map(
+                      (
+                        request
+                      ) => (
+                        <option
+                          key={
+                            request._id
+                          }
+                          value={
+                            request._id
+                          }
+                        >
+                          {request.publicId ||
+                            'Request'}
+
+                          {' — '}
+
+                          {request.bloodGroup}
+
+                          {' — '}
+
+                          {request.patientName}
+
+                          {' — '}
+
+                          {Math.max(
+                            Number(
+                              request.unitsNeeded
+                            ) -
+                            Number(
+                              request.unitsFulfilled ||
+                                0
+                            ),
+                            0
+                          )}{' '}
+                          unit(s) remaining
                         </option>
                       )
                     )}
